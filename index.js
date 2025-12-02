@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const connectDB = require("./config/db");
+const cors = require("cors");
 
 const quoteRoutes = require("./routes/quoteRoutes");
 const locationsRoutes = require("./routes/locationsRoutes");
@@ -11,10 +12,11 @@ const PORT = process.env.PORT || 5000;
 
 connectDB();
 
-const cors = require("cors");
+
+
 
 app.use(cors({
-  origin: ["http://localhost:5173","https://quick-ship-flame.vercel.app/"],   // Or 3000 depending on your React
+  origin: ["http://localhost:5173","https://quick-ship-flame.vercel.app"],   // Or 3000 depending on your React
   credentials: true
 }));
 
