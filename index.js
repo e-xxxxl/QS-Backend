@@ -14,7 +14,7 @@ connectDB();
 const cors = require("cors");
 
 app.use(cors({
-  origin: "http://localhost:5173",   // Or 3000 depending on your React
+  origin: ["http://localhost:5173","https://quick-ship-flame.vercel.app/"],   // Or 3000 depending on your React
   credentials: true
 }));
 
