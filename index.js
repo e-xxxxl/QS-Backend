@@ -5,8 +5,11 @@ const cors = require("cors");
 
 const quoteRoutes = require("./routes/quoteRoutes");
 const locationsRoutes = require("./routes/locationsRoutes");
+const authRoutes = require("./routes/authRoutes");
 // Add this with your other route imports
 const trackingRoutes = require('./routes/trackingRoutes');
+// Add this to your server file, after auth routes
+const userRoutes = require('./routes/userRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -34,6 +37,11 @@ app.use("/api/locations", locationsRoutes);
 
 // Add this with your other route uses
 app.use('/api/tracking', trackingRoutes);
+
+
+app.use('/api/auth', authRoutes);
+
+app.use('/api/user', userRoutes);
 
 // ✅ ERROR HANDLER LAST
 app.use((err, req, res, next) => {
