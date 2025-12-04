@@ -5,7 +5,8 @@ const {
   verifyOTP, 
   resendOTP, 
   login,
-  forgotPassword
+  forgotPassword,
+    resetPassword
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -15,6 +16,7 @@ router.post('/verify-otp', verifyOTP);
 router.post('/resend-otp', resendOTP);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword); // Add this route
 
 router.get('/test', (req, res) => {
   res.status(200).json({
