@@ -6,32 +6,24 @@ const validator = require('validator');
 const crypto = require('crypto');
 
 // Email transporter setup for quickship.africa
-// const transporter = nodemailer.createTransport({
-//   host: process.env.EMAIL_HOST || 'smtp.quickship.africa',
-//   port: parseInt(process.env.EMAIL_PORT) || 465,
-//   secure: true, // true for port 465 (SSL)
-//   auth: {
-//     user: process.env.EMAIL_USER || 'contact@quickship.africa',
-//     pass: process.env.EMAIL_PASSWORD
-//   },
-//   tls: {
-//     rejectUnauthorized: false
-//   },
-//   connectionTimeout: 10000,
-//   greetingTimeout: 10000,
-//   socketTimeout: 10000,
-//   debug: process.env.EMAIL_DEBUG === 'true',
-//   logger: process.env.EMAIL_LOGGER === 'true'
-// });
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.quickship.africa',
+  port: parseInt(process.env.EMAIL_PORT) || 465,
+  secure: true, // true for port 465 (SSL)
+  auth: {
+    user: process.env.EMAIL_USER || 'contact@quickship.africa',
+    pass: process.env.EMAIL_PASSWORD
+  },
+  tls: {
+    rejectUnauthorized: false
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
+  debug: process.env.EMAIL_DEBUG === 'true',
+  logger: process.env.EMAIL_LOGGER === 'true'
+});
 
-
- const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER, // Your email from .env
-        pass: process.env.EMAIL_PASS, // Your password from .env
-      },
-    });
 // Test email connection on startup
 transporter.verify((error) => {
   if (error) {
