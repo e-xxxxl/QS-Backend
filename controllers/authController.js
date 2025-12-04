@@ -8,8 +8,9 @@ const crypto = require('crypto');
 // Email transporter setup for quickship.africa
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.quickship.africa',
-  port: parseInt(process.env.EMAIL_PORT) || 465,
-  secure: true, // true for port 465 (SSL)
+  port: parseInt(process.env.EMAIL_PORT) || 587,
+   secure: false, // false for port 587
+  requireTLS: true, // Add this
   auth: {
     user: process.env.EMAIL_USER || 'contact@quickship.africa',
     pass: process.env.EMAIL_PASSWORD
