@@ -3,8 +3,8 @@ const Shipment = require('../models/Shipment');
 const User = require('../models/User');
 
 // Terminal Africa API Configuration
-const TERMINAL_AFRICA_API_KEY = process.env.TERMINAL_AFRICA_API_KEY || 'your-terminal-africa-api-key';
-const TERMINAL_AFRICA_BASE_URL = 'https://api.terminal.africa/v1';
+const TERMINAL_AFRICA_API_KEY = process.env.TSHIP_SECRET_KEY || 'your-terminal-africa-api-key';
+const TERMINAL_AFRICA_BASE_URL = 'https://sandbox.terminal.africa/v1';
 
 // Helper function for Terminal Africa API calls
 const terminalAfricaAPI = axios.create({

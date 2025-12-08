@@ -1,37 +1,30 @@
 const User = require('../models/User');
 const OTP = require('../models/OTP');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend'); // Replace nodemailer with Resend
 const validator = require('validator');
 const crypto = require('crypto');
 
-// Email transporter setup for quickship.africa
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.quickship.africa',
-  port: parseInt(process.env.EMAIL_PORT) || 465,
-  secure: true, // true for port 465 (SSL)
-  auth: {
-    user: process.env.EMAIL_USER || 'contact@quickship.africa',
-    pass: process.env.EMAIL_PASSWORD
-  },
-  tls: {
-    rejectUnauthorized: false
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-  debug: process.env.EMAIL_DEBUG === 'true',
-  logger: process.env.EMAIL_LOGGER === 'true'
-});
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Test email connection on startup
-transporter.verify((error) => {
-  if (error) {
-    console.error('❌ Email server connection failed:', error.message);
-  } else {
-    console.log('✅ Email server is ready to    send messages from:', process.env.EMAIL_USER);
+// Test Resend setup on startup
+(async () => {
+  try {
+    console.log('🔧 Initializing Resend...');
+    
+    if (!process.env.RESEND_API_KEY) {
+      console.warn('⚠️ RESEND_API_KEY is not set. Emails will not work.');
+      return;
+    }
+    
+    console.log('✅ Resend initialized');
+    console.log('📧 From email will be:', process.env.EMAIL_FROM || 'QuickShipAfrica <onboarding@resend.dev>');
+    
+  } catch (error) {
+    console.error('❌ Resend initialization error:', error.message);
   }
-});
+})();
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -40,17 +33,26 @@ const generateToken = (userId) => {
   });
 };
 
-// Send OTP Email
+// Send OTP Email using Resend
 const sendOTPEmail = async (email, otpCode, firstName, retryCount = 0) => {
-  const maxRetries = 3;
+  const maxRetries = 2; // Reduced retries for API service
   
   try {
     console.log(`📧 Attempting to send OTP to: ${email}`);
     
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || `"QuickShipAfrica" <contact@quickship.africa>`,
+    // Check if we have Resend API key
+    if (!process.env.RESEND_API_KEY) {
+      console.warn(`⚠️ RESEND_API_KEY not set. Logging OTP instead for ${email}: ${otpCode}`);
+      return { id: 'dev-mode', message: 'OTP logged (no API key)' };
+    }
+    
+    // Determine sender email
+    const fromEmail = process.env.EMAIL_FROM || 'QuickShipAfrica <onboarding@resend.dev>';
+    
+    const emailData = await resend.emails.send({
+      from: fromEmail,
       to: email,
-      replyTo: process.env.EMAIL_REPLY_TO || 'contact@quickship.africa',
+      reply_to: process.env.EMAIL_REPLY_TO || 'contact@quickship.africa',
       subject: 'Verify Your Email - QuickShipAfrica',
       html: `
         <!DOCTYPE html>
@@ -145,22 +147,39 @@ The QuickShipAfrica Team
 
 © ${new Date().getFullYear()} QuickShipAfrica. All rights reserved.
 This email was sent to ${email}`
-    };
-
-    const info = await transporter.sendMail(mailOptions);
+    });
     
     console.log(`✅ OTP email sent successfully to ${email}`);
-    console.log(`   Message ID: ${info.messageId}`);
+    console.log(`   Email ID: ${emailData.id}`);
     
-    return info;
+    return emailData;
     
   } catch (error) {
     console.error(`❌ Failed to send OTP email to ${email}:`, error.message);
     
-    // Retry logic
-    if (retryCount < maxRetries) {
-      console.log(`Retrying... (${retryCount + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    // Log the full error for debugging
+    console.error('Resend error details:', {
+      name: error.name,
+      message: error.message,
+      statusCode: error.statusCode,
+      code: error.code
+    });
+    
+    // For development/fallback, log OTP to console
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🔐 [DEV FALLBACK] OTP for ${email}: ${otpCode}`);
+    }
+    
+    // Retry logic for transient errors
+    const isRetryable = retryCount < maxRetries && 
+      !error.message?.includes('validation_error') &&
+      !error.message?.includes('rate_limit') &&
+      !error.message?.includes('invalid_parameter');
+    
+    if (isRetryable) {
+      const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+      console.log(`Retrying in ${delay/1000}s... (${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
       return sendOTPEmail(email, otpCode, firstName, retryCount + 1);
     }
     
@@ -245,23 +264,28 @@ exports.signup = async (req, res) => {
     });
     await otpRecord.save();
 
-    // Send OTP email
+    // Send OTP email using Resend
     try {
       await sendOTPEmail(user.email, otpCode, user.firstName);
     } catch (emailError) {
       console.error('Failed to send OTP email:', emailError);
       
-      // Delete user if email fails (optional)
-      await User.findByIdAndDelete(user._id);
-      await OTP.deleteMany({ userId: user._id });
-      
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send verification email. Please try again.'
-      });
+      // Don't delete user in development mode
+      if (process.env.NODE_ENV === 'production') {
+        await User.findByIdAndDelete(user._id);
+        await OTP.deleteMany({ userId: user._id });
+        
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send verification email. Please try again.'
+        });
+      } else {
+        console.log('⚠️ Dev mode: User created despite email error');
+        console.log(`⚠️ OTP for ${user.email}: ${otpCode}`);
+      }
     }
 
-    // Generate token (optional - you might want to wait until email is verified)
+    // Generate token
     const token = generateToken(user._id);
 
     // Don't send password in response
@@ -269,7 +293,9 @@ exports.signup = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Account created successfully! Check your email for verification code.',
+      message: process.env.NODE_ENV === 'production' 
+        ? 'Account created successfully! Check your email for verification code.' 
+        : 'Account created! Check server logs for OTP (dev mode).',
       data: {
         user: {
           id: user._id,
@@ -280,8 +306,10 @@ exports.signup = async (req, res) => {
           isEmailVerified: user.isEmailVerified,
           requiresVerification: true
         },
-        token, // Optional: include token if you want auto-login
-        redirectTo: `/verify-otp?email=${encodeURIComponent(user.email)}`
+        token,
+        redirectTo: `/verify-otp?email=${encodeURIComponent(user.email)}`,
+        // In dev mode, include OTP for testing
+        ...(process.env.NODE_ENV !== 'production' && { devOtp: otpCode })
       }
     });
 
@@ -428,7 +456,7 @@ exports.verifyOTP = async (req, res) => {
           isEmailVerified: user.isEmailVerified
         },
         token,
-        redirectTo: '/dashboard'
+        redirectTo: '/address'
       }
     });
 
@@ -475,7 +503,7 @@ exports.resendOTP = async (req, res) => {
       });
     }
 
-    // Check if user has reached max OTP resend attempts (optional)
+    // Check if user has reached max OTP resend attempts
     const recentOTPs = await OTP.countDocuments({
       userId: user._id,
       type: 'email_verification',
@@ -505,11 +533,17 @@ exports.resendOTP = async (req, res) => {
     });
     await otpRecord.save();
 
-    // Send OTP email
+    // Send OTP email using Resend
     try {
       await sendOTPEmail(user.email, otpCode, user.firstName);
     } catch (emailError) {
       console.error('Failed to resend OTP email:', emailError);
+      
+      // In dev mode, log the OTP
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`🔐 [DEV] Resend OTP for ${email}: ${otpCode}`);
+      }
+      
       return res.status(500).json({
         success: false,
         message: 'Failed to send OTP. Please try again.'
@@ -591,6 +625,10 @@ exports.login = async (req, res) => {
         await sendOTPEmail(user.email, otpCode, user.firstName);
       } catch (emailError) {
         console.error('Failed to send OTP email:', emailError);
+        // In dev mode, log the OTP
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`🔐 [DEV] Login OTP for ${email}: ${otpCode}`);
+        }
       }
 
       return res.status(401).json({
@@ -685,45 +723,84 @@ exports.forgotPassword = async (req, res) => {
     // Create reset URL
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
 
-    // Send reset email
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || `"QuickShipAfrica" <contact@quickship.africa>`,
-      to: user.email,
-      subject: 'Password Reset Request - QuickShipAfrica',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0;">QuickShipAfrica</h1>
-          </div>
-          <div style="padding: 30px; background-color: #f9fafb;">
-            <h2 style="color: #1f2937;">Hello ${user.firstName},</h2>
-            <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">
-              You requested to reset your password. Click the button below to create a new password:
-            </p>
-            <div style="text-align: center; margin: 40px 0;">
-              <a href="${resetUrl}" 
-                 style="background-color: #f97316; color: white; padding: 15px 30px; 
-                        text-decoration: none; border-radius: 8px; font-weight: bold;
-                        display: inline-block;">
-                Reset Password
-              </a>
-            </div>
-            <p style="color: #4b5563; font-size: 14px;">
-              This link will expire in 1 hour. If you didn't request a password reset, 
-              please ignore this email.
-            </p>
-            <p style="color: #4b5563; font-size: 14px;">
-              Or copy and paste this link: <br>
-              <code style="background-color: #e5e7eb; padding: 5px 10px; border-radius: 4px; font-size: 12px;">
-                ${resetUrl}
-              </code>
-            </p>
-          </div>
-        </div>
-      `
-    };
+    // Send reset email using Resend
+    try {
+      // Check if we have Resend API key
+      if (!process.env.RESEND_API_KEY) {
+        console.warn(`⚠️ RESEND_API_KEY not set. Password reset link for ${email}: ${resetUrl}`);
+        return res.status(200).json({
+          success: true,
+          message: 'If an account exists, you will receive a password reset link',
+          devMode: true,
+          resetUrl: resetUrl
+        });
+      }
 
-    await transporter.sendMail(mailOptions);
+      const fromEmail = process.env.EMAIL_FROM || 'QuickShipAfrica <onboarding@resend.dev>';
+      
+      await resend.emails.send({
+        from: fromEmail,
+        to: user.email,
+        subject: 'Password Reset Request - QuickShipAfrica',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">QuickShipAfrica</h1>
+            </div>
+            <div style="padding: 30px; background-color: #f9fafb;">
+              <h2 style="color: #1f2937;">Hello ${user.firstName},</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.5;">
+                You requested to reset your password. Click the button below to create a new password:
+              </p>
+              <div style="text-align: center; margin: 40px 0;">
+                <a href="${resetUrl}" 
+                   style="background-color: #f97316; color: white; padding: 15px 30px; 
+                          text-decoration: none; border-radius: 8px; font-weight: bold;
+                          display: inline-block;">
+                  Reset Password
+                </a>
+              </div>
+              <p style="color: #4b5563; font-size: 14px;">
+                This link will expire in 1 hour. If you didn't request a password reset, 
+                please ignore this email.
+              </p>
+              <p style="color: #4b5563; font-size: 14px;">
+                Or copy and paste this link: <br>
+                <code style="background-color: #e5e7eb; padding: 5px 10px; border-radius: 4px; font-size: 12px;">
+                  ${resetUrl}
+                </code>
+              </p>
+            </div>
+          </div>
+        `,
+        text: `Hello ${user.firstName},
+
+You requested to reset your password for QuickShipAfrica.
+
+Click the link below to reset your password:
+${resetUrl}
+
+This link will expire in 1 hour. If you didn't request a password reset, please ignore this email.
+
+Best regards,
+The QuickShipAfrica Team`
+      });
+
+      console.log(`✅ Password reset email sent to ${email}`);
+
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      
+      // In dev mode, log the reset link
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`🔐 [DEV] Password reset link for ${email}: ${resetUrl}`);
+      }
+      
+      // Don't fail the request in dev mode
+      if (process.env.NODE_ENV === 'production') {
+        throw emailError;
+      }
+    }
 
     res.status(200).json({
       success: true,
