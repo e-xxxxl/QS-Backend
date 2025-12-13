@@ -525,6 +525,9 @@ exports.createParcel = async (req, res) => {
 // @desc    Create shipment
 // @route   POST /api/shipments/create
 // @access  Private
+// @desc    Create shipment
+// @route   POST /api/shipments/create
+// @access  Private
 exports.createShipment = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -543,8 +546,7 @@ exports.createShipment = async (req, res) => {
     if (!address_from_id || !address_to_id || !parcel_id || !rate_id) {
       return res.status(400).json({
         success: false,
-        message:
-          "Address from ID, address to ID, parcel ID, and rate ID are required",
+        message: "Address from ID, address to ID, parcel ID, and rate ID are required",
       });
     }
 
@@ -574,16 +576,42 @@ exports.createShipment = async (req, res) => {
     // Add optional fields
     if (shipment_purpose) shipmentData.shipment_purpose = shipment_purpose;
 
-    console.log("📦 Creating shipment on Terminal Africa...");
+    console.log("📦 Creating shipment on Terminal Africa with data:", shipmentData);
 
     // Create shipment on Terminal Africa
-    const createResponse = await terminalAfricaAPI.post(
-      "/shipments",
-      shipmentData
-    );
-    const terminalShipment = createResponse.data.data;
+    let createResponse;
+    try {
+      createResponse = await terminalAfricaAPI.post("/shipments", shipmentData);
+      console.log("✅ Terminal Africa response:", JSON.stringify(createResponse.data, null, 2));
+    } catch (error) {
+      console.error("❌ Terminal Africa API error:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw new Error(`Terminal Africa error: ${error.response?.data?.message || error.message}`);
+    }
 
-    console.log("✅ Shipment created on Terminal Africa:", terminalShipment.id);
+    const terminalShipment = createResponse.data.data;
+    
+    // CRITICAL: Check if we got a valid response
+    if (!terminalShipment) {
+      throw new Error("Terminal Africa returned empty shipment data");
+    }
+    
+    if (!terminalShipment.id && !terminalShipment.shipment_id) {
+      throw new Error("Terminal Africa response missing shipment ID");
+    }
+
+    console.log("✅ Shipment created on Terminal Africa. Full response:", {
+      id: terminalShipment.id,
+      shipment_id: terminalShipment.shipment_id,
+      tracking_number: terminalShipment.tracking_number,
+      status: terminalShipment.status,
+      address_from: terminalShipment.address_from,
+      address_to: terminalShipment.address_to,
+      parcel: terminalShipment.parcel
+    });
 
     // Try to get rate details
     let rate = {
@@ -591,46 +619,124 @@ exports.createShipment = async (req, res) => {
       service: "Standard",
       amount: 0,
       currency: "NGN",
+      estimated_delivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // Default: 5 days from now
+      carrier: {
+        slug: "unknown",
+        name: "Unknown Carrier"
+      }
     };
+    
     try {
       const rateResponse = await terminalAfricaAPI.get(`/rates/${rate_id}`);
-      rate = rateResponse.data.data || rate;
+      const rateData = rateResponse.data.data;
+      console.log("📊 Rate details from Terminal Africa:", rateData);
+      
+      if (rateData) {
+        rate = {
+          ...rate,
+          ...rateData,
+          // Parse estimated delivery string to Date if needed
+          estimated_delivery: rateData.estimated_delivery || rateData.delivery_time 
+            ? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // Default to 5 days if string
+            : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+        };
+      }
     } catch (rateError) {
       console.warn("⚠️ Could not fetch rate details:", rateError.message);
     }
 
-    // Prepare shipment data for our database
-    const shipment = new Shipment({
+    // Fetch FULL address and parcel details from Terminal Africa
+    let addressFromDetails = {};
+    let addressToDetails = {};
+    let parcelDetails = {};
+    
+    try {
+      const [fromResponse, toResponse, parcelResponse] = await Promise.all([
+        terminalAfricaAPI.get(`/addresses/${address_from_id}`).catch(err => null),
+        terminalAfricaAPI.get(`/addresses/${address_to_id}`).catch(err => null),
+        terminalAfricaAPI.get(`/parcels/${parcel_id}`).catch(err => null)
+      ]);
+      
+      addressFromDetails = fromResponse?.data?.data || {};
+      addressToDetails = toResponse?.data?.data || {};
+      parcelDetails = parcelResponse?.data?.data || {};
+      
+      console.log("📍 Fetched details:", {
+        address_from: addressFromDetails?.name,
+        address_to: addressToDetails?.name,
+        parcel_weight: parcelDetails?.weight
+      });
+    } catch (fetchError) {
+      console.warn("⚠️ Could not fetch all details:", fetchError.message);
+    }
+
+    // Get the shipment ID (use whichever field exists)
+    const shipmentId = terminalShipment.id || terminalShipment.shipment_id;
+    const trackingNumber = terminalShipment.tracking_number || "";
+
+    // Prepare shipment data for our database - with ALL required fields
+    const shipmentDataForDB = {
       user: userId,
-      terminalShipmentId: terminalShipment.id,
+      terminalShipmentId: shipmentId,
       terminalAddressFromId: address_from_id,
       terminalAddressToId: address_to_id,
       terminalParcelId: parcel_id,
       terminalRateId: rate_id,
 
-      trackingNumber: terminalShipment.tracking_number || "",
-      reference: terminalShipment.reference || "",
+      trackingNumber: trackingNumber,
+      reference: terminalShipment.reference || `SHIP-${Date.now()}`,
       status: terminalShipment.status || "draft",
 
-      // Store original data
-      sender: terminalShipment.address_from,
-      receiver: terminalShipment.address_to,
-      parcel: terminalShipment.parcel,
+      // Sender details - from Terminal Africa response or fetched details
+      sender: {
+        name: addressFromDetails.name || terminalShipment.address_from?.name || "Unknown Sender",
+        address: addressFromDetails.address || terminalShipment.address_from?.address || "Unknown Address",
+        city: addressFromDetails.city || terminalShipment.address_from?.city || "",
+        state: addressFromDetails.state || terminalShipment.address_from?.state || "",
+        country: addressFromDetails.country || terminalShipment.address_from?.country || "NG",
+        phone: addressFromDetails.phone || terminalShipment.address_from?.phone || "",
+        email: addressFromDetails.email || terminalShipment.address_from?.email || user.email,
+      },
+      
+      // Receiver details
+      receiver: {
+        name: addressToDetails.name || terminalShipment.address_to?.name || "Unknown Receiver",
+        address: addressToDetails.address || terminalShipment.address_to?.address || "Unknown Address",
+        city: addressToDetails.city || terminalShipment.address_to?.city || "",
+        state: addressToDetails.state || terminalShipment.address_to?.state || "",
+        country: addressToDetails.country || terminalShipment.address_to?.country || "NG",
+        phone: addressToDetails.phone || terminalShipment.address_to?.phone || "",
+        email: addressToDetails.email || terminalShipment.address_to?.email || "",
+      },
+      
+      // Parcel details
+      parcel: {
+        weight: parcelDetails.weight || terminalShipment.parcel?.weight || 1,
+        length: parcelDetails.length || terminalShipment.parcel?.length || 10,
+        width: parcelDetails.width || terminalShipment.parcel?.width || 10,
+        height: parcelDetails.height || terminalShipment.parcel?.height || 10,
+        description: parcelDetails.description || terminalShipment.parcel?.description || "Shipment parcel",
+        items: parcelDetails.items || terminalShipment.parcel?.items || [],
+      },
 
       // Shipping details
       shipping: {
-        carrier: rate.carrier?.slug || rate.carrier || "",
-        carrier_name:
-          rate.carrier_name || rate.carrier?.name || "Unknown Carrier",
+        carrier: rate.carrier?.slug || rate.carrier || "unknown",
+        carrier_name: rate.carrier_name || rate.carrier?.name || "Unknown Carrier",
         service: rate.service || "Standard",
         rate_id: rate_id,
         amount: rate.amount || 0,
         currency: rate.currency || "NGN",
-        estimated_delivery: rate.estimated_delivery || "3-5 days",
+        estimated_delivery: rate.estimated_delivery, // Already a Date object
       },
 
       // Metadata
-      metadata: metadata,
+      metadata: {
+        ...metadata,
+        created_at: new Date().toISOString(),
+        terminal_africa_response: terminalShipment
+      },
+      
       shipment_purpose: shipment_purpose,
 
       // Payment
@@ -639,9 +745,12 @@ exports.createShipment = async (req, res) => {
         amount: rate.amount || 0,
         currency: rate.currency || "NGN",
       },
-    });
+    };
 
-    // Save to database
+    console.log("📋 Shipment data for DB:", JSON.stringify(shipmentDataForDB, null, 2));
+
+    // Create and save shipment
+    const shipment = new Shipment(shipmentDataForDB);
     await shipment.save();
 
     console.log("✅ Shipment saved to database:", shipment._id);
@@ -650,7 +759,7 @@ exports.createShipment = async (req, res) => {
     let purchaseStatus = "not_purchased";
     try {
       await terminalAfricaAPI.post(
-        `/shipments/${terminalShipment.id}/purchase`,
+        `/shipments/${shipmentId}/purchase`,
         {
           rate: rate_id,
         }
@@ -680,36 +789,36 @@ exports.createShipment = async (req, res) => {
           shipping: shipment.shipping,
           createdAt: shipment.createdAt,
         },
-        terminalShipmentId: terminalShipment.id,
+        terminalShipmentId: shipmentId,
         purchaseStatus: purchaseStatus,
-        trackingNumber: terminalShipment.tracking_number,
-        rate: shipment.shipping,
+        trackingNumber: trackingNumber,
       },
     });
   } catch (error) {
     console.error("❌ Error creating shipment:", {
       message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
+      stack: error.stack,
     });
 
-    let errorMessage = "Failed to create shipment";
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.response?.data?.error) {
-      errorMessage = error.response.data.error;
-    } else if (error.name === "ValidationError") {
-      const messages = Object.values(error.errors).map((err) => err.message);
-      errorMessage = messages.join(", ");
+    // Check if it's a Mongoose validation error
+    if (error.name === "ValidationError") {
+      const errors = {};
+      Object.keys(error.errors).forEach((key) => {
+        errors[key] = error.errors[key].message;
+      });
+      
+      console.error("📋 Validation Errors:", JSON.stringify(errors, null, 2));
+      
+      return res.status(400).json({
+        success: false,
+        message: "Shipment validation failed",
+        errors: errors,
+      });
     }
 
-    res.status(error.response?.status || 500).json({
+    res.status(500).json({
       success: false,
-      message: errorMessage,
-      debug:
-        process.env.NODE_ENV === "development"
-          ? error.response?.data
-          : undefined,
+      message: error.message || "Failed to create shipment",
     });
   }
 };

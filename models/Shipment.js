@@ -16,8 +16,7 @@ const shipmentSchema = new mongoose.Schema({
   },
   
   trackingNumber: {
-    type: String,
-    required: true
+    type: String
   },
   
   reference: {
@@ -30,92 +29,38 @@ const shipmentSchema = new mongoose.Schema({
     default: 'draft'
   },
   
-  // Sender details
+   // Sender details - make some fields optional
   sender: {
-    name: {
-      type: String,
-      required: true
-    },
-    email: {
-      type: String,
-      required: true
-    },
-    phone: {
-      type: String,
-      required: true
-    },
-    address: {
-      type: String,
-      required: true
-    },
+    name: { type: String, required: true },
+    email: { type: String }, // REMOVE required
+    phone: { type: String }, // REMOVE required
+    address: { type: String, required: true },
     address2: String,
-    city: {
-      type: String,
-      required: true
-    },
-    state: {
-      type: String,
-      required: true
-    },
-    country: {
-      type: String,
-      required: true
-    },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    country: { type: String, required: true },
     zip: String
   },
   
-  // Receiver details
+  // Receiver details - make some fields optional
   receiver: {
-    name: {
-      type: String,
-      required: true
-    },
-    email: {
-      type: String,
-      required: true
-    },
-    phone: {
-      type: String,
-      required: true
-    },
-    address: {
-      type: String,
-      required: true
-    },
+    name: { type: String, required: true },
+    email: { type: String }, // REMOVE required
+    phone: { type: String }, // REMOVE required
+    address: { type: String, required: true },
     address2: String,
-    city: {
-      type: String,
-      required: true
-    },
-    state: {
-      type: String,
-      required: true
-    },
-    country: {
-      type: String,
-      required: true
-    },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    country: { type: String, required: true },
     zip: String
   },
   
-  // Parcel details
+  // Parcel details - keep required as you already have them from frontend
   parcel: {
-    length: {
-      type: Number,
-      required: true
-    },
-    width: {
-      type: Number,
-      required: true
-    },
-    height: {
-      type: Number,
-      required: true
-    },
-    weight: {
-      type: Number,
-      required: true
-    },
+    length: { type: Number, required: true },
+    width: { type: Number, required: true },
+    height: { type: Number, required: true },
+    weight: { type: Number, required: true },
     items: [{
       description: String,
       quantity: Number,
