@@ -11,6 +11,7 @@ const trackingRoutes = require('./routes/trackingRoutes');
 // Add this to your server file, after auth routes
 const userRoutes = require('./routes/userRoutes');
 const shipmentRoutes = require('./routes/shipmentRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -45,6 +46,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 
 app.use('/api/shipments', shipmentRoutes);
+
+// Add after other route declarations
+app.use('/api/dashboard', dashboardRoutes);
 
 // ✅ ERROR HANDLER LAST
 app.use((err, req, res, next) => {
