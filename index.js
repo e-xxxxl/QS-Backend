@@ -12,6 +12,8 @@ const trackingRoutes = require('./routes/trackingRoutes');
 const userRoutes = require('./routes/userRoutes');
 const shipmentRoutes = require('./routes/shipmentRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const paymentRoutes = require('./routes/paymentRoutes'); // Add this line
+const emailRoutes = require('./routes/emailRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -35,6 +37,9 @@ app.use("/api/quotes", quoteRoutes);
 // At the bottom with your other routes
 app.use("/api/locations", locationsRoutes);
 
+app.use('/api/payments', paymentRoutes); // Add this line
+
+app.use('/api/email', emailRoutes);
 
 
 // Add this with your other route uses
