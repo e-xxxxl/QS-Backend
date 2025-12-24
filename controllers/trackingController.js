@@ -20,7 +20,7 @@ exports.trackShipment = async (req, res) => {
     }
 
     // Call Terminal Africa API to track shipment
-    const response = await axios.get(`https://api.terminal.africa/v1/shipments/track/${shipment_id}`, {
+    const response = await axios.get(`https://sandbox.terminal.africa/v1/shipments/track/${shipment_id}`, {
       headers: {
         "Authorization": `Bearer ${process.env.TSHIP_SECRET_KEY}`,
         "Content-Type": "application/json",
@@ -219,7 +219,7 @@ exports.getShipmentDetails = async (req, res) => {
       });
     }
 
-    const response = await axios.get(`https://api.terminal.africa/v1/shipments/${shipment_id}`, {
+    const response = await axios.get(`https://sandbox.terminal.africa/v1/shipments/${shipment_id}`, {
       headers: {
         "Authorization": `Bearer ${process.env.TSHIP_SECRET_KEY}`,
         "Content-Type": "application/json",

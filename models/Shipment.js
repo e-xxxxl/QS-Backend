@@ -29,11 +29,11 @@ const shipmentSchema = new mongoose.Schema({
     default: 'draft'
   },
   
-   // Sender details - make some fields optional
+  // Sender details
   sender: {
     name: { type: String, required: true },
-    email: { type: String }, // REMOVE required
-    phone: { type: String }, // REMOVE required
+    email: { type: String },
+    phone: { type: String },
     address: { type: String, required: true },
     address2: String,
     city: { type: String, required: true },
@@ -42,11 +42,11 @@ const shipmentSchema = new mongoose.Schema({
     zip: String
   },
   
-  // Receiver details - make some fields optional
+  // Receiver details
   receiver: {
     name: { type: String, required: true },
-    email: { type: String }, // REMOVE required
-    phone: { type: String }, // REMOVE required
+    email: { type: String },
+    phone: { type: String },
     address: { type: String, required: true },
     address2: String,
     city: { type: String, required: true },
@@ -55,7 +55,7 @@ const shipmentSchema = new mongoose.Schema({
     zip: String
   },
   
-  // Parcel details - keep required as you already have them from frontend
+  // Parcel details
   parcel: {
     length: { type: Number, required: true },
     width: { type: Number, required: true },
@@ -70,7 +70,7 @@ const shipmentSchema = new mongoose.Schema({
     }]
   },
   
-  // Shipping details
+  // Shipping details - CHANGE estimated_delivery to Mixed type
   shipping: {
     carrier: {
       type: String,
@@ -96,7 +96,10 @@ const shipmentSchema = new mongoose.Schema({
       type: String,
       default: 'NGN'
     },
-    estimated_delivery: Date
+    estimated_delivery: {
+      type: mongoose.Schema.Types.Mixed, // CHANGE from Date to Mixed
+      default: null
+    }
   },
   
   // Insurance
@@ -139,8 +142,8 @@ const shipmentSchema = new mongoose.Schema({
     method: String,
     transactionId: String,
     paidAt: Date
-    }
-  }, { timestamps: true });
+  }
+}, { timestamps: true });
 
 // Indexes
 shipmentSchema.index({ terminalShipmentId: 1 }, { unique: true });

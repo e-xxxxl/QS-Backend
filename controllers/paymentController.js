@@ -343,8 +343,18 @@ exports.verifyAndCreateShipment = async (req, res) => {
     }
 
     // 1. Verify payment with Paystack
-    const verification = await Paystack.transaction.verify(reference);
-    const paymentData = verification.data;
+    let paymentData;
+    try {
+      const verification = await Paystack.transaction.verify(reference);
+      paymentData = verification.data;
+    } catch (paystackError) {
+      console.error('❌ Paystack verification failed:', paystackError);
+      return res.status(400).json({
+        success: false,
+        message: 'Payment verification failed',
+        error: paystackError.message
+      });
+    }
 
     console.log('📊 Payment verification result:', {
       reference: paymentData.reference,
@@ -370,16 +380,69 @@ exports.verifyAndCreateShipment = async (req, res) => {
       console.log('🚚 Creating shipment after successful payment...');
 
       try {
-        // Import shipment controller
-        const shipmentController = require('./shipmentController');
+        // Get the original amount from metadata
+        const originalAmount = shipment_data.metadata?.original_amount || 
+                              shipment_data.metadata?.total_amount || 
+                              paymentData.amount / 100;
+        
+        const serviceFeePercentage = shipment_data.metadata?.service_fee_percentage || 25;
+        const serviceFeeAmount = shipment_data.metadata?.service_fee_amount || 0;
+        
+        // FIX: Handle estimated_delivery properly
+        let estimatedDelivery = shipment_data.metadata?.estimated_delivery;
+        
+        if (estimatedDelivery && estimatedDelivery !== 'Invalid Date') {
+          // Try to parse if it's a date string
+          const parsedDate = new Date(estimatedDelivery);
+          if (!isNaN(parsedDate.getTime())) {
+            estimatedDelivery = parsedDate;
+          }
+          // If it's not a valid date (e.g., "3-5 business days"), keep as string
+        }
         
         // Create shipment with the provided data
         const shipment = new Shipment({
           user: userId,
-          ...shipment_data,
+          terminalShipmentId: `TEMP_${Date.now()}`,
+          trackingNumber: `TRACK_${Date.now()}`,
+          status: 'pending',
+          sender: {
+            name: shipment_data.metadata?.sender_name || 'Sender',
+            email: shipment_data.metadata?.user_email || paymentData.customer?.email,
+            phone: shipment_data.metadata?.sender_phone || '',
+            address: shipment_data.metadata?.sender_address || '',
+            city: shipment_data.metadata?.sender_city || '',
+            state: shipment_data.metadata?.sender_state || '',
+            country: shipment_data.metadata?.sender_country || 'NG'
+          },
+          receiver: {
+            name: shipment_data.metadata?.receiver_name || 'Receiver',
+            email: shipment_data.metadata?.receiver_email || '',
+            phone: shipment_data.metadata?.receiver_phone || '',
+            address: shipment_data.metadata?.receiver_address || '',
+            city: shipment_data.metadata?.receiver_city || '',
+            state: shipment_data.metadata?.receiver_state || '',
+            country: shipment_data.metadata?.receiver_country || 'NG'
+          },
+          parcel: {
+            weight: parseFloat(shipment_data.metadata?.parcel_weight || 1),
+            length: parseFloat(shipment_data.metadata?.parcel_length || 10),
+            width: parseFloat(shipment_data.metadata?.parcel_width || 10),
+            height: parseFloat(shipment_data.metadata?.parcel_height || 10),
+            items: shipment_data.metadata?.items || []
+          },
+          shipping: {
+            carrier: shipment_data.metadata?.carrier || 'QuickShip',
+            carrier_name: shipment_data.metadata?.carrier_name || 'QuickShip Carrier',
+            service: shipment_data.metadata?.service || 'Standard',
+            rate_id: shipment_data.rate_id,
+            amount: originalAmount,
+            currency: paymentData.currency || 'NGN',
+            estimated_delivery: estimatedDelivery || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+          },
           payment: {
             status: 'paid',
-            amount: paymentData.amount / 100,
+            amount: paymentData.amount / 100, // This is the total amount paid (includes 25% fee)
             currency: paymentData.currency,
             method: paymentData.channel,
             transactionId: reference,
@@ -389,7 +452,10 @@ exports.verifyAndCreateShipment = async (req, res) => {
               authorization_code: paymentData.authorization?.authorization_code,
               card_type: paymentData.authorization?.card_type,
               bank: paymentData.authorization?.bank,
-              brand: paymentData.authorization?.brand
+              brand: paymentData.authorization?.brand,
+              service_fee_percentage: serviceFeePercentage,
+              service_fee_amount: serviceFeeAmount,
+              original_amount: originalAmount
             }
           }
         });
@@ -401,15 +467,24 @@ exports.verifyAndCreateShipment = async (req, res) => {
 
         // Try to create on Terminal Africa
         try {
-          const terminalResponse = await shipmentController.createShipmentOnTerminalAfrica(shipment_data);
+          // Import shipment controller
+          const shipmentController = require('./shipmentController');
+          const terminalResponse = await shipmentController.createShipmentOnTerminalAfrica({
+            address_from_id: shipment_data.address_from_id,
+            address_to_id: shipment_data.address_to_id,
+            parcel_id: shipment_data.parcel_id,
+            rate_id: shipment_data.rate_id,
+            metadata: shipment_data.metadata
+          });
           
-          // Update with Terminal Africa IDs
-          shipment.terminalShipmentId = terminalResponse.shipment_id;
-          shipment.trackingNumber = terminalResponse.tracking_number;
-          shipment.status = 'pending';
-          await shipment.save();
-          
-          console.log('✅ Terminal Africa shipment created:', terminalResponse.shipment_id);
+          // Update with Terminal Africa IDs if successful
+          if (terminalResponse.shipment_id) {
+            shipment.terminalShipmentId = terminalResponse.shipment_id;
+            shipment.trackingNumber = terminalResponse.tracking_number || shipment.trackingNumber;
+            await shipment.save();
+            
+            console.log('✅ Terminal Africa shipment created:', terminalResponse.shipment_id);
+          }
         } catch (terminalError) {
           console.warn('⚠️ Failed to create on Terminal Africa:', terminalError.message);
           // Shipment is still saved in our DB
@@ -428,7 +503,16 @@ exports.verifyAndCreateShipment = async (req, res) => {
           console.error('❌ Failed to refund payment:', refundError);
         }
         
-        throw new Error(`Shipment creation failed: ${shipmentError.message}`);
+        return res.status(500).json({
+          success: false,
+          message: `Shipment creation failed: ${shipmentError.message}`,
+          payment: {
+            reference: paymentData.reference,
+            status: paymentData.status,
+            amount: paymentData.amount / 100,
+            currency: paymentData.currency
+          }
+        });
       }
     }
 
@@ -439,32 +523,24 @@ exports.verifyAndCreateShipment = async (req, res) => {
     if (createdShipment) {
       try {
         const user = await User.findById(userId);
-        await sendShipmentConfirmation({
-          to: user.email,
-          shipment: createdShipment,
-          user: user
-        });
-        console.log('📧 Confirmation email sent');
-      } catch (emailError) {
-        console.warn('⚠️ Failed to send email:', emailError.message);
-      }
-    }
-
-    // Send emails after successful payment
-    if (createdShipment) {
-      try {
-        await sendPaymentAndShipmentEmails(userId, {
-          reference: paymentData.reference,
-          amount: paymentData.amount / 100,
-          currency: paymentData.currency,
-          channel: paymentData.channel,
-          status: paymentData.status,
-          paidAt: paymentData.paid_at
-        }, createdShipment);
         
-        console.log('📧 Confirmation emails sent');
-      } catch (emailError) {
-        console.warn('⚠️ Failed to send emails:', emailError.message);
+        // Send emails
+        try {
+          await sendPaymentAndShipmentEmails(userId, {
+            reference: paymentData.reference,
+            amount: paymentData.amount / 100,
+            currency: paymentData.currency,
+            channel: paymentData.channel,
+            status: paymentData.status,
+            paidAt: paymentData.paid_at
+          }, createdShipment);
+          
+          console.log('📧 Confirmation emails sent');
+        } catch (emailError) {
+          console.warn('⚠️ Failed to send emails:', emailError.message);
+        }
+      } catch (userError) {
+        console.warn('⚠️ Failed to find user for email:', userError.message);
       }
     }
 
@@ -506,7 +582,6 @@ exports.verifyAndCreateShipment = async (req, res) => {
     });
   }
 };
-
 // @desc    Get shipping rates with amount
 // @route   POST /api/shipments/rates-with-quote
 // @access  Private

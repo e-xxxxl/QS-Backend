@@ -6,7 +6,7 @@ const User = require("../models/User");
 const TERMINAL_AFRICA_API_KEY =
   process.env.TSHIP_SECRET_KEY || process.env.TERMINAL_AFRICA_API_KEY;
 const TERMINAL_AFRICA_BASE_URL =
-  process.env.TERMINAL_AFRICA_BASE_URL || "https://api.terminal.africa/v1";
+  process.env.TERMINAL_AFRICA_BASE_URL || "https://sandbox.terminal.africa/v1";
 
 console.log("🚚 Terminal Africa Config:", {
   hasKey: !!TERMINAL_AFRICA_API_KEY,
