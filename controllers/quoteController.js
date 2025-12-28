@@ -60,7 +60,7 @@ exports.getQuoteRates = async (req, res) => {
 
     // Send request to Terminal Africa API
     const response = await axios.post(
-      "https://sandbox.terminal.africa/v1/rates/shipment/quotes",
+      "https://api.terminal.africa/v1/rates/shipment/quotes",
       payload,
       {
         headers: {

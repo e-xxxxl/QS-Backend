@@ -5,7 +5,7 @@ exports.getCountries = async (req, res) => {
   try {
     console.log("Fetching countries from Terminal Africa...");
     
-    const response = await axios.get("https://sandbox.terminal.africa/v1/countries", {
+    const response = await axios.get("https://api.terminal.africa/v1/countries", {
       headers: {
         "Authorization": `Bearer ${process.env.TSHIP_SECRET_KEY}`,
         "Content-Type": "application/json",
@@ -80,7 +80,7 @@ exports.getStates = async (req, res) => {
       });
     }
 
-    const response = await axios.get(`https://sandbox.terminal.africa/v1/states?country_code=${country_code}`, {
+    const response = await axios.get(`https://api.terminal.africa/v1/states?country_code=${country_code}`, {
       headers: {
         "Authorization": `Bearer ${process.env.TSHIP_SECRET_KEY}`,
         "Content-Type": "application/json",
@@ -171,7 +171,7 @@ exports.getCities = async (req, res) => {
     }
 
     // Try different encoding approaches
-    let url = `https://sandbox.terminal.africa/v1/cities?country_code=${country_code}&state_code=${state_code}`;
+    let url = `https://api.terminal.africa/v1/cities?country_code=${country_code}&state_code=${state_code}`;
     console.log("Requesting URL:", url);
     
     const response = await axios.get(url, {
