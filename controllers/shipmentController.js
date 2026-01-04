@@ -3,10 +3,8 @@ const Shipment = require("../models/Shipment");
 const User = require("../models/User");
 
 // Terminal Africa API Configuration
-const TERMINAL_AFRICA_API_KEY =
-  process.env.TSHIP_SECRET_KEY || process.env.TERMINAL_AFRICA_API_KEY;
-const TERMINAL_AFRICA_BASE_URL =
-  process.env.TERMINAL_AFRICA_BASE_URL || "https://api.terminal.africa/v1";
+const TERMINAL_AFRICA_API_KEY =process.env.TSHIP_SECRET_KEY || process.env.TERMINAL_AFRICA_API_KEY;
+const TERMINAL_AFRICA_BASE_URL =process.env.TERMINAL_AFRICA_BASE_URL || "https://api.terminal.africa/v1";
 
 console.log("🚚 Terminal Africa Config:", {
   hasKey: !!TERMINAL_AFRICA_API_KEY,
@@ -24,7 +22,7 @@ const terminalAfricaAPI = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 30000,
+  timeout: 60000,
 });
 
 // Updated createTerminalAddress function
@@ -37,7 +35,7 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
       state: addressData.state,
       country: addressData.country,
       phone: addressData.phone,
-      email: addressData.email
+      email: addressData.email,
     });
 
     // Prepare address data with proper structure
@@ -54,7 +52,10 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
       is_residential: addressData.is_residential !== false,
     };
 
-    console.log(`📤 Sending payload to Terminal Africa /addresses:`, addressPayload);
+    console.log(
+      `📤 Sending payload to Terminal Africa /addresses:`,
+      addressPayload
+    );
 
     const response = await terminalAfricaAPI.post("/addresses", addressPayload);
 
@@ -67,15 +68,17 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
       message: response.data?.message,
       address_id: terminalAddress.address_id,
       _id: terminalAddress._id,
-      id: terminalAddress.id
+      id: terminalAddress.id,
     });
 
     // ✅ Try to fetch the address immediately to verify it exists
     try {
-      const verifyResponse = await terminalAfricaAPI.get(`/addresses/${terminalAddress.address_id}`);
+      const verifyResponse = await terminalAfricaAPI.get(
+        `/addresses/${terminalAddress.address_id}`
+      );
       console.log(`✅ Address verified on Terminal Africa with address_id:`, {
         id: verifyResponse.data.data.address_id,
-        exists: true
+        exists: true,
       });
     } catch (verifyError) {
       console.error(`❌ Address could not be verified:`, verifyError.message);
@@ -88,7 +91,7 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
       message: error.message,
       status: error.response?.status,
       response: error.response?.data,
-      config: error.config
+      config: error.config,
     });
     throw new Error(
       `Failed to create ${type} address: ${
@@ -100,85 +103,58 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
 
 const createTerminalParcel = async (parcelData) => {
   try {
-    console.log('📦 Creating parcel on Terminal Africa:', {
+    console.log("📦 Creating parcel on Terminal Africa:", {
       weight: parcelData.weight,
-      dimensions: `${parcelData.length}x${parcelData.width}x${parcelData.height}`
+      dimensions: `${parcelData.length}x${parcelData.width}x${parcelData.height}`,
     });
 
-    const items = parcelData.items.map(item => ({
-      description: item.description || item.name || 'Item',
-      name: item.name || item.description || 'Item',
-      currency: item.currency || 'NGN',
+    const items = parcelData.items.map((item) => ({
+      description: item.description || item.name || "Item",
+      name: item.name || item.description || "Item",
+      currency: item.currency || "NGN",
       value: item.value || 0,
       weight: item.weight || 0,
-      quantity: item.quantity || 1
+      quantity: item.quantity || 1,
     }));
 
-    console.log('📤 Sending parcel payload:', {
-      description: parcelData.description || 'Shipment parcel',
+    const parcelPayload = {
+      description: parcelData.description || "Shipment parcel",
       weight: parseFloat(parcelData.weight) || 1.0,
-      weight_unit: 'kg',
+      weight_unit: "kg",
       length: parseFloat(parcelData.length) || 10,
       width: parseFloat(parcelData.width) || 10,
       height: parseFloat(parcelData.height) || 10,
-      dimension_unit: 'cm',
-      items: items
-    });
+      dimension_unit: "cm",
+      items: items,
+    };
 
-    const response = await terminalAfricaAPI.post('/parcels', {
-      description: parcelData.description || 'Shipment parcel',
-      weight: parseFloat(parcelData.weight) || 1.0,
-      weight_unit: 'kg',
-      length: parseFloat(parcelData.length) || 10,
-      width: parseFloat(parcelData.width) || 10,
-      height: parseFloat(parcelData.height) || 10,
-      dimension_unit: 'cm',
-      items: items
-    });
+    console.log("📤 Sending parcel payload:", parcelPayload);
+
+    const response = await terminalAfricaAPI.post("/parcels", parcelPayload);
 
     const terminalParcel = response.data.data;
-    
-    // ✅ Log ALL fields from the response
-    console.log('📦 FULL Parcel response:', {
-      status: response.status,
-      data_status: response.data?.status,
-      message: response.data?.message,
-      ALL_FIELDS: terminalParcel,
-      KEYS: Object.keys(terminalParcel)
-    });
-    
-    // ✅ Check which ID fields exist
-    const availableIds = {};
-    ['parcel_id', 'id', '_id', 'parcelId', 'parcelID'].forEach(key => {
-      if (terminalParcel[key]) {
-        availableIds[key] = terminalParcel[key];
-      }
-    });
-    
-    console.log('📦 Available parcel IDs:', availableIds);
-    
-    // ✅ Try to verify with each possible ID
-    for (const [key, value] of Object.entries(availableIds)) {
-      try {
-        const verifyResponse = await terminalAfricaAPI.get(`/parcels/${value}`);
-        console.log(`✅ Parcel verified with ${key}: ${value}`, {
-          exists: true,
-          verified_id: verifyResponse.data.data.parcel_id || verifyResponse.data.data.id
-        });
-      } catch (verifyError) {
-        console.log(`❌ Parcel NOT found with ${key}: ${value}`, verifyError.message);
-      }
-    }
-    
-    return terminalParcel;
 
+    // ✅ Log the ENTIRE response for debugging
+    console.log("📦 FULL API Response:", JSON.stringify(response.data, null, 2));
+
+    // Check if weight is in the response
+    console.log("📦 Weight fields in response:", {
+      weight: terminalParcel.weight,
+      total_weight: terminalParcel.total_weight,
+      parcel_weight: terminalParcel.parcel_weight,
+      items_weight: terminalParcel.items?.reduce((sum, item) => sum + (item.weight || 0), 0)
+    });
+
+    return terminalParcel;
   } catch (error) {
-    console.error('❌ Error creating Terminal Africa parcel:', {
+    console.error("❌ Error creating Terminal Africa parcel:", {
       message: error.message,
       response: error.response?.data,
-      status: error.response?.status
+      status: error.response?.status,
     });
-    throw new Error(`Failed to create parcel: ${error.response?.data?.message || error.message}`);
+    throw new Error(
+      `Failed to create parcel: ${error.response?.data?.message || error.message}`
+    );
   }
 };
 
@@ -192,7 +168,7 @@ exports.getShippingRates = async (req, res) => {
     console.log("📊 Getting shipping rates for:", {
       address_from_id,
       address_to_id,
-      parcel_id
+      parcel_id,
     });
 
     // Validate required fields
@@ -205,40 +181,42 @@ exports.getShippingRates = async (req, res) => {
 
     // Debug: Try different parcel ID formats
     console.log("🔍 Testing different parcel ID formats...");
-    
+
     // Try to fetch parcel with the provided ID
     try {
-      const parcelResponse = await terminalAfricaAPI.get(`/parcels/${parcel_id}`);
+      const parcelResponse = await terminalAfricaAPI.get(
+        `/parcels/${parcel_id}`
+      );
       console.log("✅ Parcel found with provided ID:", {
         parcel_id: parcelResponse.data.data.parcel_id,
         id: parcelResponse.data.data.id,
         _id: parcelResponse.data.data._id,
-        weight: parcelResponse.data.data.weight
+        weight: parcelResponse.data.data.weight,
       });
     } catch (error) {
       console.error("❌ Parcel NOT found with provided ID:", {
         parcel_id: parcel_id,
         error: error.message,
-        response: error.response?.data
+        response: error.response?.data,
       });
-      
+
       // Try alternative ID formats
       console.log("🔄 Trying alternative ID formats...");
-      
+
       // If parcel_id starts with PC-, maybe we need just the MongoDB _id
-      if (parcel_id.startsWith('PC-')) {
+      if (parcel_id.startsWith("PC-")) {
         try {
           // Try to get parcel by listing all and finding it
-          const allParcels = await terminalAfricaAPI.get('/parcels?limit=10');
-          const matchingParcel = allParcels.data.data.find(p => 
-            p.parcel_id === parcel_id || p.id === parcel_id
+          const allParcels = await terminalAfricaAPI.get("/parcels?limit=10");
+          const matchingParcel = allParcels.data.data.find(
+            (p) => p.parcel_id === parcel_id || p.id === parcel_id
           );
-          
+
           if (matchingParcel) {
             console.log("🔍 Found parcel in list:", {
               parcel_id: matchingParcel.parcel_id,
               id: matchingParcel.id,
-              _id: matchingParcel._id
+              _id: matchingParcel._id,
             });
           } else {
             console.log("❌ Parcel not found in recent parcels list");
@@ -251,36 +229,44 @@ exports.getShippingRates = async (req, res) => {
 
     // Prepare the request parameters - try different combinations
     console.log("🔍 Testing different parameter combinations...");
-    
+
     const testParams = [
-      {
-        name: "Original params",
-        params: {
-          pickup_address: address_from_id,
-          delivery_address: address_to_id,
-          parcel: parcel_id,
-          currency: "NGN",
-          cash_on_delivery: false,
-        }
-      },
-      {
-        name: "Without optional params",
-        params: {
-          pickup_address: address_from_id,
-          delivery_address: address_to_id,
-          parcel: parcel_id,
-        }
-      },
-      {
-        name: "Try parcel_id instead of parcel",
-        params: {
-          pickup_address: address_from_id,
-          delivery_address: address_to_id,
-          parcel_id: parcel_id,  // Try parcel_id instead of parcel
-          currency: "NGN",
-        }
-      }
-    ];
+  {
+    name: "Live API Format",
+    params: {
+      pickup_address: address_from_id,
+      delivery_address: address_to_id,
+      parcel_id: parcel_id,  // Use parcel_id instead of parcel
+      currency: "NGN",
+      cash_on_delivery: false,
+    },
+  },
+  {
+    name: "Alternative Format 1",
+    params: {
+      pickup_address: address_from_id,
+      delivery_address: address_to_id,
+      parcel: parcel_id,
+      currency: "NGN",
+    },
+  },
+  {
+    name: "Alternative Format 2",
+    params: {
+      address_from: address_from_id,
+      address_to: address_to_id,
+      parcel: parcel_id,
+    },
+  },
+  {
+    name: "Minimal Params",
+    params: {
+      pickup_address: address_from_id,
+      delivery_address: address_to_id,
+      parcel_id: parcel_id,
+    },
+  }
+];
 
     let ratesResponse;
     let successfulParams;
@@ -288,22 +274,27 @@ exports.getShippingRates = async (req, res) => {
     // Try each parameter combination
     for (const test of testParams) {
       console.log(`🧪 Testing: ${test.name}`, test.params);
-      
+
       try {
         ratesResponse = await terminalAfricaAPI.get("/rates/shipment", {
-          params: test.params
+          params: test.params,
         });
-        
+
         console.log(`✅ ${test.name} SUCCESS!`);
         successfulParams = test.params;
         break;
       } catch (testError) {
-        console.log(`❌ ${test.name} failed:`, testError.response?.data?.message || testError.message);
+        console.log(
+          `❌ ${test.name} failed:`,
+          testError.response?.data?.message || testError.message
+        );
       }
     }
 
     if (!ratesResponse) {
-      throw new Error("All parameter combinations failed. Last error: Valid parcel id must be provided");
+      throw new Error(
+        "All parameter combinations failed. Last error: Valid parcel id must be provided"
+      );
     }
 
     console.log(
@@ -361,10 +352,9 @@ exports.getShippingRates = async (req, res) => {
         currency: "NGN",
         timestamp: new Date().toISOString(),
         rates_count: formattedRates.length,
-        successful_params: successfulParams
+        successful_params: successfulParams,
       },
     });
-    
   } catch (error) {
     console.error("❌ Error getting shipping rates:", {
       message: error.message,
@@ -442,25 +432,25 @@ exports.getShippingRates = async (req, res) => {
 exports.createAddress = async (req, res) => {
   try {
     const addressData = req.body;
-    console.log('📍 Creating address on Terminal Africa...');
+    console.log("📍 Creating address on Terminal Africa...");
 
     const terminalAddress = await createTerminalAddress(addressData);
 
     // ✅ CRITICAL: Use address_id NOT _id or id!
     const addressId = terminalAddress.address_id || terminalAddress.id;
-    
-    console.log('✅ Address created. Available IDs:', {
+
+    console.log("✅ Address created. Available IDs:", {
       address_id: terminalAddress.address_id,
       _id: terminalAddress._id,
       id: terminalAddress.id,
-      using_id: addressId
+      using_id: addressId,
     });
 
     res.status(201).json({
       success: true,
-      message: 'Address created successfully',
+      message: "Address created successfully",
       data: {
-        id: addressId,  // ✅ This should be the address_id (AD-...)
+        id: addressId, // ✅ This should be the address_id (AD-...)
         address_id: terminalAddress.address_id, // Include for debugging
         name: terminalAddress.name || addressData.name,
         address: terminalAddress.address || addressData.address,
@@ -468,15 +458,14 @@ exports.createAddress = async (req, res) => {
         state: terminalAddress.state,
         country: terminalAddress.country,
         // Return full object for debugging
-        terminal_response: terminalAddress
-      }
+        terminal_response: terminalAddress,
+      },
     });
-
   } catch (error) {
-    console.error('❌ Error creating address:', error.message);
+    console.error("❌ Error creating address:", error.message);
     res.status(500).json({
       success: false,
-      message: error.message || 'Server error while creating address'
+      message: error.message || "Server error while creating address",
     });
   }
 };
@@ -487,38 +476,37 @@ exports.createAddress = async (req, res) => {
 exports.createParcel = async (req, res) => {
   try {
     const parcelData = req.body;
-    console.log('📦 Creating parcel on Terminal Africa...');
+    console.log("📦 Creating parcel on Terminal Africa...");
 
     const terminalParcel = await createTerminalParcel(parcelData);
 
     // ✅ CRITICAL: Use parcel_id NOT _id or id!
     const parcelId = terminalParcel.parcel_id || terminalParcel.id;
-    
-    console.log('✅ Parcel created. Available IDs:', {
+
+    console.log("✅ Parcel created. Available IDs:", {
       parcel_id: terminalParcel.parcel_id,
       _id: terminalParcel._id,
       id: terminalParcel.id,
-      using_id: parcelId
+      using_id: parcelId,
     });
 
     res.status(201).json({
       success: true,
-      message: 'Parcel created successfully',
+      message: "Parcel created successfully",
       data: {
-        id: parcelId,  // ✅ This should be the parcel_id (PC-...)
+        id: parcelId, // ✅ This should be the parcel_id (PC-...)
         parcel_id: terminalParcel.parcel_id, // Include for debugging
         weight: terminalParcel.weight,
         dimensions: `${terminalParcel.length}x${terminalParcel.width}x${terminalParcel.height}`,
         description: terminalParcel.description,
-        terminal_response: terminalParcel
-      }
+        terminal_response: terminalParcel,
+      },
     });
-
   } catch (error) {
-    console.error('❌ Error creating parcel:', error.message);
+    console.error("❌ Error creating parcel:", error.message);
     res.status(500).json({
       success: false,
-      message: error.message || 'Server error while creating parcel'
+      message: error.message || "Server error while creating parcel",
     });
   }
 };
@@ -546,7 +534,8 @@ exports.createShipment = async (req, res) => {
     if (!address_from_id || !address_to_id || !parcel_id || !rate_id) {
       return res.status(400).json({
         success: false,
-        message: "Address from ID, address to ID, parcel ID, and rate ID are required",
+        message:
+          "Address from ID, address to ID, parcel ID, and rate ID are required",
       });
     }
 
@@ -576,29 +565,39 @@ exports.createShipment = async (req, res) => {
     // Add optional fields
     if (shipment_purpose) shipmentData.shipment_purpose = shipment_purpose;
 
-    console.log("📦 Creating shipment on Terminal Africa with data:", shipmentData);
+    console.log(
+      "📦 Creating shipment on Terminal Africa with data:",
+      shipmentData
+    );
 
     // Create shipment on Terminal Africa
     let createResponse;
     try {
       createResponse = await terminalAfricaAPI.post("/shipments", shipmentData);
-      console.log("✅ Terminal Africa response:", JSON.stringify(createResponse.data, null, 2));
+      console.log(
+        "✅ Terminal Africa response:",
+        JSON.stringify(createResponse.data, null, 2)
+      );
     } catch (error) {
       console.error("❌ Terminal Africa API error:", {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
       });
-      throw new Error(`Terminal Africa error: ${error.response?.data?.message || error.message}`);
+      throw new Error(
+        `Terminal Africa error: ${
+          error.response?.data?.message || error.message
+        }`
+      );
     }
 
     const terminalShipment = createResponse.data.data;
-    
+
     // CRITICAL: Check if we got a valid response
     if (!terminalShipment) {
       throw new Error("Terminal Africa returned empty shipment data");
     }
-    
+
     if (!terminalShipment.id && !terminalShipment.shipment_id) {
       throw new Error("Terminal Africa response missing shipment ID");
     }
@@ -610,7 +609,7 @@ exports.createShipment = async (req, res) => {
       status: terminalShipment.status,
       address_from: terminalShipment.address_from,
       address_to: terminalShipment.address_to,
-      parcel: terminalShipment.parcel
+      parcel: terminalShipment.parcel,
     });
 
     // Try to get rate details
@@ -622,23 +621,24 @@ exports.createShipment = async (req, res) => {
       estimated_delivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // Default: 5 days from now
       carrier: {
         slug: "unknown",
-        name: "Unknown Carrier"
-      }
+        name: "Unknown Carrier",
+      },
     };
-    
+
     try {
       const rateResponse = await terminalAfricaAPI.get(`/rates/${rate_id}`);
       const rateData = rateResponse.data.data;
       console.log("📊 Rate details from Terminal Africa:", rateData);
-      
+
       if (rateData) {
         rate = {
           ...rate,
           ...rateData,
           // Parse estimated delivery string to Date if needed
-          estimated_delivery: rateData.estimated_delivery || rateData.delivery_time 
-            ? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // Default to 5 days if string
-            : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+          estimated_delivery:
+            rateData.estimated_delivery || rateData.delivery_time
+              ? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // Default to 5 days if string
+              : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
         };
       }
     } catch (rateError) {
@@ -649,22 +649,26 @@ exports.createShipment = async (req, res) => {
     let addressFromDetails = {};
     let addressToDetails = {};
     let parcelDetails = {};
-    
+
     try {
       const [fromResponse, toResponse, parcelResponse] = await Promise.all([
-        terminalAfricaAPI.get(`/addresses/${address_from_id}`).catch(err => null),
-        terminalAfricaAPI.get(`/addresses/${address_to_id}`).catch(err => null),
-        terminalAfricaAPI.get(`/parcels/${parcel_id}`).catch(err => null)
+        terminalAfricaAPI
+          .get(`/addresses/${address_from_id}`)
+          .catch((err) => null),
+        terminalAfricaAPI
+          .get(`/addresses/${address_to_id}`)
+          .catch((err) => null),
+        terminalAfricaAPI.get(`/parcels/${parcel_id}`).catch((err) => null),
       ]);
-      
+
       addressFromDetails = fromResponse?.data?.data || {};
       addressToDetails = toResponse?.data?.data || {};
       parcelDetails = parcelResponse?.data?.data || {};
-      
+
       console.log("📍 Fetched details:", {
         address_from: addressFromDetails?.name,
         address_to: addressToDetails?.name,
-        parcel_weight: parcelDetails?.weight
+        parcel_weight: parcelDetails?.weight,
       });
     } catch (fetchError) {
       console.warn("⚠️ Could not fetch all details:", fetchError.message);
@@ -689,40 +693,75 @@ exports.createShipment = async (req, res) => {
 
       // Sender details - from Terminal Africa response or fetched details
       sender: {
-        name: addressFromDetails.name || terminalShipment.address_from?.name || "Unknown Sender",
-        address: addressFromDetails.address || terminalShipment.address_from?.address || "Unknown Address",
-        city: addressFromDetails.city || terminalShipment.address_from?.city || "",
-        state: addressFromDetails.state || terminalShipment.address_from?.state || "",
-        country: addressFromDetails.country || terminalShipment.address_from?.country || "NG",
-        phone: addressFromDetails.phone || terminalShipment.address_from?.phone || "",
-        email: addressFromDetails.email || terminalShipment.address_from?.email || user.email,
+        name:
+          addressFromDetails.name ||
+          terminalShipment.address_from?.name ||
+          "Unknown Sender",
+        address:
+          addressFromDetails.address ||
+          terminalShipment.address_from?.address ||
+          "Unknown Address",
+        city:
+          addressFromDetails.city || terminalShipment.address_from?.city || "",
+        state:
+          addressFromDetails.state ||
+          terminalShipment.address_from?.state ||
+          "",
+        country:
+          addressFromDetails.country ||
+          terminalShipment.address_from?.country ||
+          "NG",
+        phone:
+          addressFromDetails.phone ||
+          terminalShipment.address_from?.phone ||
+          "",
+        email:
+          addressFromDetails.email ||
+          terminalShipment.address_from?.email ||
+          user.email,
       },
-      
+
       // Receiver details
       receiver: {
-        name: addressToDetails.name || terminalShipment.address_to?.name || "Unknown Receiver",
-        address: addressToDetails.address || terminalShipment.address_to?.address || "Unknown Address",
+        name:
+          addressToDetails.name ||
+          terminalShipment.address_to?.name ||
+          "Unknown Receiver",
+        address:
+          addressToDetails.address ||
+          terminalShipment.address_to?.address ||
+          "Unknown Address",
         city: addressToDetails.city || terminalShipment.address_to?.city || "",
-        state: addressToDetails.state || terminalShipment.address_to?.state || "",
-        country: addressToDetails.country || terminalShipment.address_to?.country || "NG",
-        phone: addressToDetails.phone || terminalShipment.address_to?.phone || "",
-        email: addressToDetails.email || terminalShipment.address_to?.email || "",
+        state:
+          addressToDetails.state || terminalShipment.address_to?.state || "",
+        country:
+          addressToDetails.country ||
+          terminalShipment.address_to?.country ||
+          "NG",
+        phone:
+          addressToDetails.phone || terminalShipment.address_to?.phone || "",
+        email:
+          addressToDetails.email || terminalShipment.address_to?.email || "",
       },
-      
+
       // Parcel details
       parcel: {
         weight: parcelDetails.weight || terminalShipment.parcel?.weight || 1,
         length: parcelDetails.length || terminalShipment.parcel?.length || 10,
         width: parcelDetails.width || terminalShipment.parcel?.width || 10,
         height: parcelDetails.height || terminalShipment.parcel?.height || 10,
-        description: parcelDetails.description || terminalShipment.parcel?.description || "Shipment parcel",
+        description:
+          parcelDetails.description ||
+          terminalShipment.parcel?.description ||
+          "Shipment parcel",
         items: parcelDetails.items || terminalShipment.parcel?.items || [],
       },
 
       // Shipping details
       shipping: {
         carrier: rate.carrier?.slug || rate.carrier || "unknown",
-        carrier_name: rate.carrier_name || rate.carrier?.name || "Unknown Carrier",
+        carrier_name:
+          rate.carrier_name || rate.carrier?.name || "Unknown Carrier",
         service: rate.service || "Standard",
         rate_id: rate_id,
         amount: rate.amount || 0,
@@ -734,9 +773,9 @@ exports.createShipment = async (req, res) => {
       metadata: {
         ...metadata,
         created_at: new Date().toISOString(),
-        terminal_africa_response: terminalShipment
+        terminal_africa_response: terminalShipment,
       },
-      
+
       shipment_purpose: shipment_purpose,
 
       // Payment
@@ -747,7 +786,10 @@ exports.createShipment = async (req, res) => {
       },
     };
 
-    console.log("📋 Shipment data for DB:", JSON.stringify(shipmentDataForDB, null, 2));
+    console.log(
+      "📋 Shipment data for DB:",
+      JSON.stringify(shipmentDataForDB, null, 2)
+    );
 
     // Create and save shipment
     const shipment = new Shipment(shipmentDataForDB);
@@ -758,12 +800,9 @@ exports.createShipment = async (req, res) => {
     // Try to purchase the shipment
     let purchaseStatus = "not_purchased";
     try {
-      await terminalAfricaAPI.post(
-        `/shipments/${shipmentId}/purchase`,
-        {
-          rate: rate_id,
-        }
-      );
+      await terminalAfricaAPI.post(`/shipments/${shipmentId}/purchase`, {
+        rate: rate_id,
+      });
 
       shipment.status = "pending";
       purchaseStatus = "purchased";
@@ -806,9 +845,9 @@ exports.createShipment = async (req, res) => {
       Object.keys(error.errors).forEach((key) => {
         errors[key] = error.errors[key].message;
       });
-      
+
       console.error("📋 Validation Errors:", JSON.stringify(errors, null, 2));
-      
+
       return res.status(400).json({
         success: false,
         message: "Shipment validation failed",

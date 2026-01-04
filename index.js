@@ -14,6 +14,9 @@ const shipmentRoutes = require('./routes/shipmentRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const paymentRoutes = require('./routes/paymentRoutes'); // Add this line
 const emailRoutes = require('./routes/emailRoutes');
+// In your main server file (server.js or app.js)
+const adminRoutes = require('./routes/adminRoutes');
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -54,6 +57,8 @@ app.use('/api/shipments', shipmentRoutes);
 
 // Add after other route declarations
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin/auth', adminAuthRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ✅ ERROR HANDLER LAST
 app.use((err, req, res, next) => {

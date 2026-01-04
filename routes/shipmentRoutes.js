@@ -10,7 +10,8 @@ const {
   getUserShipments,
   getShipmentById,
   cancelShipment,
-  getCarriers
+  getCarriers,
+  debugParcelCreation
 } = require('../controllers/shipmentController');
 
 // All routes are protected
@@ -18,6 +19,9 @@ router.use(protect);
 
 // Create address on Terminal Africa
 router.post('/address', createAddress);
+// router.post('/debug-parcel', debugParcelCreation);
+
+  
 
 // Create parcel on Terminal Africa
 router.post('/parcel', createParcel);
