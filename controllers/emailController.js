@@ -714,33 +714,87 @@ exports.sendShipmentStatusUpdate = async (req, res) => {
 };
 
 // Helper function to send email after successful payment and shipment creation
-exports.sendPaymentAndShipmentEmails = async (userId, paymentData, shipmentData) => {
+// exports.sendPaymentAndShipmentEmails = async (userId, paymentData, shipmentData) => {
+//   try {
+//     // Get user
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       console.warn(`⚠️ User ${userId} not found for email sending`);
+//       return;
+//     }
+
+//     // Send payment confirmation first
+//     try {
+//       await sendPaymentConfirmation(user.email, paymentData, shipmentData, user);
+//       console.log('✅ Payment confirmation email queued');
+//     } catch (paymentEmailError) {
+//       console.error('❌ Failed to send payment confirmation email:', paymentEmailError.message);
+//     }
+
+//     // Send shipment confirmation
+//     try {
+//       await sendShipmentConfirmation(user.email, shipmentData, user);
+//       console.log('✅ Shipment confirmation email queued');
+//     } catch (shipmentEmailError) {
+//       console.error('❌ Failed to send shipment confirmation email:', shipmentEmailError.message);
+//     }
+
+//   } catch (error) {
+//     console.error('❌ Error in sendPaymentAndShipmentEmails:', error.message);
+//   }
+// };
+// In emailController.js - Update the sendPaymentAndShipmentEmails function
+exports.sendPaymentAndShipmentEmails = async (userEmail, paymentData, shipmentData) => {
   try {
-    // Get user
-    const user = await User.findById(userId);
+    console.log('📧 Starting email sending process...');
+    console.log('📧 User email:', userEmail);
+    console.log('📧 Payment reference:', paymentData.reference);
+    console.log('📧 Shipment ID:', shipmentData._id);
+    
+    // Get user by email instead of ID to ensure we have the email
+    const user = await User.findOne({ email: userEmail });
     if (!user) {
-      console.warn(`⚠️ User ${userId} not found for email sending`);
-      return;
+      console.warn(`⚠️ User with email ${userEmail} not found`);
+      // Try to get user from shipment
+      if (shipmentData.user) {
+        const userById = await User.findById(shipmentData.user);
+        if (userById) {
+          return exports.sendPaymentAndShipmentEmails(userById.email, paymentData, shipmentData);
+        }
+      }
+      throw new Error(`User not found for email: ${userEmail}`);
     }
 
     // Send payment confirmation first
     try {
-      await sendPaymentConfirmation(user.email, paymentData, shipmentData, user);
-      console.log('✅ Payment confirmation email queued');
+      console.log('📤 Sending payment confirmation...');
+      const paymentResult = await sendPaymentConfirmation(user.email, paymentData, shipmentData, user);
+      console.log('✅ Payment confirmation result:', paymentResult?.id || 'unknown');
     } catch (paymentEmailError) {
       console.error('❌ Failed to send payment confirmation email:', paymentEmailError.message);
+      // Don't throw here, try to continue with shipment email
     }
 
     // Send shipment confirmation
     try {
-      await sendShipmentConfirmation(user.email, shipmentData, user);
-      console.log('✅ Shipment confirmation email queued');
+      console.log('📤 Sending shipment confirmation...');
+      const shipmentResult = await sendShipmentConfirmation(user.email, shipmentData, user);
+      console.log('✅ Shipment confirmation result:', shipmentResult?.id || 'unknown');
     } catch (shipmentEmailError) {
       console.error('❌ Failed to send shipment confirmation email:', shipmentEmailError.message);
     }
 
+    return {
+      success: true,
+      message: 'Emails queued successfully',
+      userId: user._id,
+      email: user.email
+    };
+
   } catch (error) {
     console.error('❌ Error in sendPaymentAndShipmentEmails:', error.message);
+    console.error('Stack trace:', error.stack);
+    throw error;
   }
 };
 
