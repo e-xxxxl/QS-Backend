@@ -34,7 +34,7 @@ const sendShipmentConfirmation = async (to, shipment, user, retryCount = 0) => {
     if (!process.env.RESEND_API_KEY) {
       console.warn(`⚠️ RESEND_API_KEY not set. Logging shipment details instead for ${to}`);
       console.log('Shipment Details:', {
-        trackingNumber: shipment.trackingNumber,
+        trackingNumber: shipment.terminalShipmentId,
         amount: shipment.shipping?.amount,
         carrier: shipment.shipping?.carrier_name,
         status: shipment.status
@@ -88,7 +88,7 @@ const sendShipmentConfirmation = async (to, shipment, user, retryCount = 0) => {
       from: fromEmail,
       to: to,
       reply_to: process.env.EMAIL_REPLY_TO || 'contact@quickship.africa',
-      subject: `🚚 Shipment Created: ${shipment.trackingNumber || 'Your QuickShip Order'}`,
+      subject: `🚚 Shipment Created: ${shipment.terminalShipmentId || 'Your QuickShip Order'}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -141,7 +141,7 @@ const sendShipmentConfirmation = async (to, shipment, user, retryCount = 0) => {
               <!-- Tracking Number -->
               <div style="text-align: center; margin: 25px 0;">
                 <p style="color: #6b7280; margin-bottom: 10px;">Tracking Number</p>
-                <div class="tracking-number">${shipment.trackingNumber || 'Pending Assignment'}</div>
+                <div class="tracking-number">${shipment.terminalShipmentId || 'Pending Assignment'}</div>
               </div>
               
               <!-- Summary Card -->
@@ -281,7 +281,7 @@ Hello ${user?.firstName || 'Valued Customer'},
 
 Order Details:
 -------------
-📦 Tracking Number: ${shipment.trackingNumber || 'Will be assigned shortly'}
+📦 Tracking Number: ${shipment.terminalShipmentId|| 'Will be assigned shortly'}
 📅 Order Date: ${formatDate(shipment.createdAt || new Date())}
 💰 Total Amount: ${formatCurrency(amount, currency)}
 ✅ Payment Status: Paid
@@ -345,7 +345,7 @@ This email was sent to ${to}
     // For development/fallback, log shipment details to console
     if (process.env.NODE_ENV !== 'production') {
       console.log(`🔐 [DEV FALLBACK] Shipment created for ${to}:`, {
-        trackingNumber: shipment.trackingNumber,
+        trackingNumber: shipment.terminalShipmentId,
         amount: shipment.shipping?.amount,
         carrier: shipment.shipping?.carrier_name,
         status: shipment.status,
@@ -456,7 +456,7 @@ const sendPaymentConfirmation = async (to, payment, shipment, user, retryCount =
               <div class="info-card">
                 <p style="color: #6b7280; margin-bottom: 10px; font-size: 14px;">Shipment Status</p>
                 <p style="font-weight: 600; color: #f97316; margin: 0;">Shipment is being created...</p>
-                ${shipment.trackingNumber ? `<p style="color: #6b7280; font-size: 13px; margin: 5px 0 0;">Tracking: ${shipment.trackingNumber}</p>` : ''}
+                ${shipment.terminalShipmentId ? `<p style="color: #6b7280; font-size: 13px; margin: 5px 0 0;">Tracking: ${shipment.terminalShipmentId}</p>` : ''}
               </div>
               ` : ''}
               
@@ -493,7 +493,7 @@ ${shipment ? `
 Shipment Details:
 ----------------
 🚚 Status: Shipment is being created...
-${shipment.trackingNumber ? `📦 Tracking: ${shipment.trackingNumber}` : ''}
+${shipment.terminalShipmentId ? `📦 Tracking: ${shipment.terminalShipmentId}` : ''}
 ` : ''}
 
 A confirmation email with shipment details will be sent to you shortly.
@@ -562,7 +562,7 @@ const sendShipmentStatusUpdate = async (to, shipment, oldStatus, newStatus, user
     await resend.emails.send({
       from: fromEmail,
       to: to,
-      subject: `📦 ${subject} - ${shipment.trackingNumber}`,
+      subject: `📦 ${subject} - ${shipment.terminalShipmentId}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 30px; text-align: center; color: white;">
@@ -585,12 +585,12 @@ const sendShipmentStatusUpdate = async (to, shipment, oldStatus, newStatus, user
               
               <div style="border-top: 2px solid #f3f4f6; padding-top: 20px;">
                 <p style="color: #6b7280; margin-bottom: 10px;">Tracking Number</p>
-                <p style="font-weight: bold; font-size: 18px; color: #1f2937; margin: 0;">${shipment.trackingNumber}</p>
+                <p style="font-weight: bold; font-size: 18px; color: #1f2937; margin: 0;">${shipment.terminalShipmentId}</p>
               </div>
             </div>
             
             <div style="text-align: center;">
-              <a href="${process.env.FRONTEND_URL || 'https://quickship.africa'}/track/${shipment.trackingNumber}" 
+              <a href="${process.env.FRONTEND_URL || 'https://quickship.africa'}/track/${shipment.terminalShipmentId}" 
                  style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #1d4ed8); 
                         color: white; padding: 12px 30px; text-decoration: none; 
                         border-radius: 8px; font-weight: bold;">

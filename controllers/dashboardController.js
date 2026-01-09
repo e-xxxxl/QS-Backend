@@ -225,7 +225,7 @@ exports.getRecentShipments = async (req, res) => {
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('trackingNumber status createdAt updatedAt shipping.carrier_name shipping.service shipping.amount shipping.currency shipping.estimated_delivery sender.name sender.city receiver.name receiver.city payment.status')
+      .select('trackingNumber terminalShipmentId status createdAt updatedAt shipping.carrier_name shipping.service shipping.amount shipping.currency shipping.estimated_delivery sender.name sender.city receiver.name receiver.city payment.status')
       .lean();
 
     // Get total count for pagination
@@ -272,6 +272,7 @@ exports.getRecentShipments = async (req, res) => {
       return {
         id: shipment._id.toString(),
         trackingNumber: shipment.trackingNumber || `SHIP-${shipment._id.toString().substring(0, 8).toUpperCase()}`,
+        terminalId: shipment.terminalShipmentId || null,
         status: shipment.status,
         statusText: shipment.status.replace('_', ' ').toUpperCase(),
         statusColor,

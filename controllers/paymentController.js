@@ -177,7 +177,7 @@ exports.verifyPayment = async (req, res) => {
         shipmentCount: shipmentCount,
         nextSteps: createdShipment ? [
           'Shipment has been created successfully',
-          'Tracking number: ' + (createdShipment.trackingNumber || 'Will be assigned'),
+          'Tracking number: ' + (createdShipment.terminalShipmentId || 'Will be assigned'),
           'You will receive a confirmation email shortly'
         ] : ['Payment successful']
       }
@@ -516,7 +516,7 @@ if (estimatedDelivery) {
         const shipment = new Shipment({
           user: userId,
           terminalShipmentId: terminalResponse.shipment_id,
-          trackingNumber: terminalResponse.tracking_number,
+          trackingNumber: terminalResponse.shipment_id,
           status: terminalResponse.status === 'draft' ? 'pending' : terminalResponse.status, // Ensure not draft
           sender: {
             name: shipment_data.metadata?.sender_name || 'Sender',

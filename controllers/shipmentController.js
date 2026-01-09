@@ -676,7 +676,7 @@ exports.createShipment = async (req, res) => {
 
     // Get the shipment ID (use whichever field exists)
     const shipmentId = terminalShipment.id || terminalShipment.shipment_id;
-    const trackingNumber = terminalShipment.tracking_number || "";
+    const trackingNumber = terminalShipment.shipment_id || "";
 
     // Prepare shipment data for our database - with ALL required fields
     const shipmentDataForDB = {
@@ -823,7 +823,7 @@ exports.createShipment = async (req, res) => {
       data: {
         shipment: {
           id: shipment._id,
-          trackingNumber: shipment.trackingNumber,
+          trackingNumber: shipment.terminalShipmentId,
           status: shipment.status,
           shipping: shipment.shipping,
           createdAt: shipment.createdAt,
