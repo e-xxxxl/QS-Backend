@@ -23,6 +23,254 @@ const resend = new Resend(process.env.RESEND_API_KEY);
   }
 })();
 
+
+// Add this function to your emailController.js file
+const sendAdminShipmentNotification = async (shipment, user, paymentData, retryCount = 0) => {
+  const maxRetries = 2;
+  
+  try {
+    console.log(`📧 Sending admin notification to: info@quickship.africa`);
+    
+    // Admin email address
+    const adminEmail = 'eajejohnson@gmail.com';
+    
+    // Check if we have Resend API key
+    if (!process.env.RESEND_API_KEY) {
+      console.warn(`⚠️ RESEND_API_KEY not set. Logging admin notification instead`);
+      console.log('🔔 ADMIN NOTIFICATION - New Shipment Created:', {
+        shipmentId: shipment._id,
+        trackingNumber: shipment.terminalShipmentId,
+        user: user?.email || 'Unknown user',
+        amount: shipment.shipping?.amount,
+        paymentReference: paymentData.reference,
+        createdAt: new Date().toISOString()
+      });
+      return { id: 'dev-mode', message: 'Admin notification logged (no API key)' };
+    }
+    
+    const fromEmail = process.env.EMAIL_FROM || 'QuickShipAfrica <sales@quickship.africa>';
+    
+    // Format currency
+    const formatCurrency = (amount, currency = 'NGN') => {
+      try {
+        return new Intl.NumberFormat('en-NG', {
+          style: 'currency',
+          currency: currency
+        }).format(amount);
+      } catch (error) {
+        return `${currency} ${amount?.toFixed(2) || '0.00'}`;
+      }
+    };
+    
+    // Format date
+    const formatDateTime = (date) => {
+      return new Date(date).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      });
+    };
+    
+    const emailData = await resend.emails.send({
+      from: fromEmail,
+      to: adminEmail,
+      cc: process.env.ADMIN_CC_EMAILS ? process.env.ADMIN_CC_EMAILS.split(',') : [],
+      subject: `🔔 NEW SHIPMENT: ${shipment.terminalShipmentId || shipment._id}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>New Shipment Notification</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f9fafb; }
+            .container { max-width: 700px; margin: 0 auto; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #1e40af, #1d4ed8); padding: 30px; text-align: center; }
+            .header h1 { color: white; margin: 0; font-size: 24px; font-weight: bold; }
+            .content { padding: 30px; }
+            .alert-badge { background-color: #fef3c7; color: #92400e; padding: 10px 20px; border-radius: 6px; font-weight: bold; margin-bottom: 20px; display: inline-block; }
+            .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 25px; }
+            .section { background: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #e5e7eb; }
+            .section-title { color: #1e40af; font-size: 16px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #dbeafe; padding-bottom: 8px; }
+            .data-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+            .data-label { color: #64748b; font-weight: 500; }
+            .data-value { font-weight: 600; color: #1e293b; text-align: right; }
+            .amount-highlight { color: #059669; font-weight: bold; font-size: 18px; }
+            .dashboard-link { display: inline-block; background: linear-gradient(135deg, #1e40af, #1d4ed8); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 20px; }
+            .footer { background-color: #1f2937; padding: 25px; text-align: center; color: #9ca3af; font-size: 14px; }
+            @media (max-width: 600px) {
+              .content { padding: 20px; }
+              .info-grid { grid-template-columns: 1fr; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔔 New Shipment Created</h1>
+            </div>
+            
+            <div class="content">
+              <div class="alert-badge">📦 New shipment requires attention</div>
+              
+              <div class="section">
+                <div class="section-title">Shipment Summary</div>
+                <div class="info-grid">
+                  <div>
+                    <div class="data-row">
+                      <span class="data-label">Shipment ID:</span>
+                      <span class="data-value">${shipment._id}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">Tracking #:</span>
+                      <span class="data-value" style="font-family: monospace;">${shipment.terminalShipmentId || 'Pending'}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">Status:</span>
+                      <span class="data-value" style="color: #f59e0b;">${shipment.status}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="data-row">
+                      <span class="data-label">Created:</span>
+                      <span class="data-value">${formatDateTime(shipment.createdAt)}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">Carrier:</span>
+                      <span class="data-value">${shipment.shipping?.carrier_name || 'N/A'}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">Service:</span>
+                      <span class="data-value">${shipment.shipping?.service || 'Standard'}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 2px solid #dbeafe;">
+                  <div class="amount-highlight">${formatCurrency(shipment.shipping?.amount || 0, shipment.shipping?.currency || 'NGN')}</div>
+                  <div style="color: #64748b; font-size: 14px; margin-top: 5px;">Total Amount</div>
+                </div>
+              </div>
+              
+              <div class="section">
+                <div class="section-title">Customer Information</div>
+                <div class="info-grid">
+                  <div>
+                    <div class="data-row">
+                      <span class="data-label">Customer:</span>
+                      <span class="data-value">${user?.firstName || ''} ${user?.lastName || ''}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">Email:</span>
+                      <span class="data-value">${user?.email || 'N/A'}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">Phone:</span>
+                      <span class="data-value">${user?.phone || shipment.sender?.phone || 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="data-row">
+                      <span class="data-label">User ID:</span>
+                      <span class="data-value" style="font-family: monospace; font-size: 12px;">${user?._id || 'N/A'}</span>
+                    </div>
+                    <div class="data-row">
+                      <span class="data-label">Total Shipments:</span>
+                      <span class="data-value">${await Shipment.countDocuments({ user: user?._id }) || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.ADMIN_DASHBOARD_URL || process.env.FRONTEND_URL || 'https://quickship.africa'}/admin/shipments/${shipment._id}" 
+                   class="dashboard-link">
+                   👁️ View in Admin Dashboard
+                </a>
+                <p style="color: #64748b; font-size: 13px; margin-top: 15px;">
+                  Shipment ID: ${shipment._id} | Terminal Africa ID: ${shipment.terminalShipmentId || 'N/A'}
+                </p>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} QuickShipAfrica - Admin Notification System</p>
+              <p>This is an automated notification. You're receiving this email because you're an admin.</p>
+              <p>Generated at: ${new Date().toLocaleString()}</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `
+🔔 NEW SHIPMENT CREATED - ADMIN NOTIFICATION
+
+SHIPMENT SUMMARY:
+================
+📦 Shipment ID: ${shipment._id}
+📋 Tracking Number: ${shipment.terminalShipmentId || 'Pending'}
+🔄 Status: ${shipment.status}
+💰 Amount: ${formatCurrency(shipment.shipping?.amount || 0, shipment.shipping?.currency || 'NGN')}
+📅 Created: ${formatDateTime(shipment.createdAt)}
+🚚 Carrier: ${shipment.shipping?.carrier_name || 'N/A'}
+📦 Service: ${shipment.shipping?.service || 'Standard'}
+
+CUSTOMER INFORMATION:
+====================
+👤 Customer: ${user?.firstName || ''} ${user?.lastName || ''}
+📧 Email: ${user?.email || 'N/A'}
+📞 Phone: ${user?.phone || shipment.sender?.phone || 'N/A'}
+🆔 User ID: ${user?._id || 'N/A'}
+📊 Total Shipments: ${await Shipment.countDocuments({ user: user?._id }) || 0}
+
+ADMIN ACTIONS:
+==============
+🔗 View in Dashboard: ${process.env.ADMIN_DASHBOARD_URL  || 'https://quickship.africa'}/admin/shipments/${shipment._id}
+
+---
+⚠️ This is an automated admin notification.
+📧 Sent to: info@quickship.africa
+⏰ Generated: ${new Date().toLocaleString()}
+© ${new Date().getFullYear()} QuickShipAfrica
+      `
+    });
+    
+    console.log(`✅ Admin notification email sent to ${adminEmail}`);
+    return emailData;
+    
+  } catch (error) {
+    console.error(`❌ Failed to send admin notification email:`, error.message);
+    
+    // Retry logic for transient errors
+    const isRetryable = retryCount < maxRetries && 
+      !error.message?.includes('validation_error') &&
+      !error.message?.includes('rate_limit') &&
+      !error.message?.includes('invalid_parameter');
+    
+    if (isRetryable) {
+      const delay = Math.pow(2, retryCount) * 1000;
+      console.log(`Retrying in ${delay/1000}s... (${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return sendAdminShipmentNotification(shipment, user, paymentData, retryCount + 1);
+    }
+    
+    console.log('🔔 ADMIN NOTIFICATION ERROR - New Shipment Created:', {
+      shipmentId: shipment._id,
+      user: user?.email,
+      error: error.message
+    });
+    
+    return { error: error.message };
+  }
+};
+
+// Export the admin notification function
+exports.sendAdminShipmentNotification = sendAdminShipmentNotification;
+
 // Send Shipment Confirmation Email
 const sendShipmentConfirmation = async (to, shipment, user, retryCount = 0) => {
   const maxRetries = 2;
@@ -782,6 +1030,15 @@ exports.sendPaymentAndShipmentEmails = async (userEmail, paymentData, shipmentDa
       console.log('✅ Shipment confirmation result:', shipmentResult?.id || 'unknown');
     } catch (shipmentEmailError) {
       console.error('❌ Failed to send shipment confirmation email:', shipmentEmailError.message);
+    }
+
+    // NEW: Send admin notification
+    try {
+      console.log('📤 Sending admin notification...');
+      const adminResult = await sendAdminShipmentNotification(shipmentData, user, paymentData);
+      console.log('✅ Admin notification result:', adminResult?.id || 'unknown');
+    } catch (adminEmailError) {
+      console.error('❌ Failed to send admin notification email:', adminEmailError.message);
     }
 
     return {
