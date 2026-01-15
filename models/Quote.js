@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+
 const quoteSchema = new mongoose.Schema({
   fromCountry: {
     type: String,
