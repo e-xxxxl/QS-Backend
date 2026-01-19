@@ -4,7 +4,7 @@ const {
   getDashboardStats, 
   getRecentShipments, 
   getQuickStats,
-  getShipmentActivity 
+  getShipmentActivity,getShipmentDetails 
 } = require('../controllers/dashboardController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -22,5 +22,6 @@ router.get('/shipments/recent', getRecentShipments);
 
 // Shipment activity timeline
 router.get('/activity', getShipmentActivity);
+router.get('/shipments/:id', protect, getShipmentDetails);
 
 module.exports = router;

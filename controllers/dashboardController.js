@@ -522,3 +522,118 @@ exports.getShipmentActivity = async (req, res) => {
     });
   }
 };
+
+
+// @desc    Get detailed shipment information
+// @route   GET /api/dashboard/shipments/:id
+// @access  Private
+exports.getShipmentDetails = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const shipmentId = req.params.id;
+
+    console.log('🔍 Fetching shipment details:', shipmentId);
+
+    const shipment = await Shipment.findOne({
+      _id: shipmentId,
+      user: userId
+    }).lean();
+
+    if (!shipment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Shipment not found'
+      });
+    }
+
+    // Format detailed response
+    const formattedShipment = {
+      id: shipment._id.toString(),
+      terminalId: shipment.terminalShipmentId,
+      trackingNumber: shipment.trackingNumber,
+      reference: shipment.reference,
+      status: shipment.status,
+      statusText: shipment.status.replace('_', ' ').toUpperCase(),
+      createdAt: shipment.createdAt,
+      updatedAt: shipment.updatedAt,
+      
+      // Sender details
+      sender: {
+        name: shipment.sender?.name || 'Unknown',
+        email: shipment.sender?.email || 'N/A',
+        phone: shipment.sender?.phone || 'N/A',
+        address: `${shipment.sender?.address || ''} ${shipment.sender?.address2 || ''}`.trim(),
+        city: shipment.sender?.city || 'Unknown',
+        state: shipment.sender?.state || 'Unknown',
+        country: shipment.sender?.country || 'Unknown',
+        zip: shipment.sender?.zip || 'N/A'
+      },
+      
+      // Receiver details
+      receiver: {
+        name: shipment.receiver?.name || 'Unknown',
+        email: shipment.receiver?.email || 'N/A',
+        phone: shipment.receiver?.phone || 'N/A',
+        address: `${shipment.receiver?.address || ''} ${shipment.receiver?.address2 || ''}`.trim(),
+        city: shipment.receiver?.city || 'Unknown',
+        state: shipment.receiver?.state || 'Unknown',
+        country: shipment.receiver?.country || 'Unknown',
+        zip: shipment.receiver?.zip || 'N/A'
+      },
+      
+      // Parcel details
+      parcel: {
+        dimensions: `${shipment.parcel?.length || 0} x ${shipment.parcel?.width || 0} x ${shipment.parcel?.height || 0} cm`,
+        weight: `${shipment.parcel?.weight || 0} kg`,
+        items: shipment.parcel?.items || []
+      },
+      
+      // Shipping details
+      shipping: {
+        carrier: shipment.shipping?.carrier_name || 'Unknown',
+        service: shipment.shipping?.service || 'Standard',
+        rateId: shipment.shipping?.rate_id,
+        amount: shipment.shipping?.amount || 0,
+        currency: shipment.shipping?.currency || 'NGN',
+        estimatedDelivery: shipment.shipping?.estimated_delivery || 'Pending'
+      },
+      
+      // Insurance
+      insurance: shipment.insurance || {
+        is_insured: false,
+        amount: 0,
+        provider: null
+      },
+      
+      // Payment
+      payment: {
+        status: shipment.payment?.status || 'pending',
+        amount: shipment.payment?.amount || 0,
+        method: shipment.payment?.method || 'N/A',
+        transactionId: shipment.payment?.transactionId,
+        paidAt: shipment.payment?.paidAt
+      },
+      
+      // Additional info
+      packaging: shipment.packaging || { type: 'custom' },
+      deliveryInstructions: shipment.deliveryInstructions || 'No special instructions'
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Shipment details retrieved successfully',
+      data: {
+        shipment: formattedShipment
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching shipment details:', error);
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch shipment details',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
