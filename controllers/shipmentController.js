@@ -3,8 +3,10 @@ const Shipment = require("../models/Shipment");
 const User = require("../models/User");
 
 // Terminal Africa API Configuration
-const TERMINAL_AFRICA_API_KEY =process.env.TSHIP_SECRET_KEY || process.env.TERMINAL_AFRICA_API_KEY;
-const TERMINAL_AFRICA_BASE_URL =process.env.TERMINAL_AFRICA_BASE_URL || "https://api.terminal.africa/v1";
+const TERMINAL_AFRICA_API_KEY =
+  process.env.TSHIP_SECRET_KEY || process.env.TERMINAL_AFRICA_API_KEY;
+const TERMINAL_AFRICA_BASE_URL =
+  process.env.TERMINAL_AFRICA_BASE_URL || "https://api.terminal.africa/v1";
 
 console.log("🚚 Terminal Africa Config:", {
   hasKey: !!TERMINAL_AFRICA_API_KEY,
@@ -54,7 +56,7 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
 
     console.log(
       `📤 Sending payload to Terminal Africa /addresses:`,
-      addressPayload
+      addressPayload,
     );
 
     const response = await terminalAfricaAPI.post("/addresses", addressPayload);
@@ -74,7 +76,7 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
     // ✅ Try to fetch the address immediately to verify it exists
     try {
       const verifyResponse = await terminalAfricaAPI.get(
-        `/addresses/${terminalAddress.address_id}`
+        `/addresses/${terminalAddress.address_id}`,
       );
       console.log(`✅ Address verified on Terminal Africa with address_id:`, {
         id: verifyResponse.data.data.address_id,
@@ -96,7 +98,7 @@ const createTerminalAddress = async (addressData, type = "shipping") => {
     throw new Error(
       `Failed to create ${type} address: ${
         error.response?.data?.message || error.message
-      }`
+      }`,
     );
   }
 };
@@ -135,14 +137,20 @@ const createTerminalParcel = async (parcelData) => {
     const terminalParcel = response.data.data;
 
     // ✅ Log the ENTIRE response for debugging
-    console.log("📦 FULL API Response:", JSON.stringify(response.data, null, 2));
+    console.log(
+      "📦 FULL API Response:",
+      JSON.stringify(response.data, null, 2),
+    );
 
     // Check if weight is in the response
     console.log("📦 Weight fields in response:", {
       weight: terminalParcel.weight,
       total_weight: terminalParcel.total_weight,
       parcel_weight: terminalParcel.parcel_weight,
-      items_weight: terminalParcel.items?.reduce((sum, item) => sum + (item.weight || 0), 0)
+      items_weight: terminalParcel.items?.reduce(
+        (sum, item) => sum + (item.weight || 0),
+        0,
+      ),
     });
 
     return terminalParcel;
@@ -153,7 +161,7 @@ const createTerminalParcel = async (parcelData) => {
       status: error.response?.status,
     });
     throw new Error(
-      `Failed to create parcel: ${error.response?.data?.message || error.message}`
+      `Failed to create parcel: ${error.response?.data?.message || error.message}`,
     );
   }
 };
@@ -185,7 +193,7 @@ exports.getShippingRates = async (req, res) => {
     // Try to fetch parcel with the provided ID
     try {
       const parcelResponse = await terminalAfricaAPI.get(
-        `/parcels/${parcel_id}`
+        `/parcels/${parcel_id}`,
       );
       console.log("✅ Parcel found with provided ID:", {
         parcel_id: parcelResponse.data.data.parcel_id,
@@ -209,7 +217,7 @@ exports.getShippingRates = async (req, res) => {
           // Try to get parcel by listing all and finding it
           const allParcels = await terminalAfricaAPI.get("/parcels?limit=10");
           const matchingParcel = allParcels.data.data.find(
-            (p) => p.parcel_id === parcel_id || p.id === parcel_id
+            (p) => p.parcel_id === parcel_id || p.id === parcel_id,
           );
 
           if (matchingParcel) {
@@ -231,74 +239,81 @@ exports.getShippingRates = async (req, res) => {
     console.log("🔍 Testing different parameter combinations...");
 
     const testParams = [
-  {
-    name: "Live API Format",
-    params: {
-      pickup_address: address_from_id,
-      delivery_address: address_to_id,
-      parcel_id: parcel_id,  // Use parcel_id instead of parcel
-      currency: "NGN",
-      cash_on_delivery: false,
-    },
-  },
-  {
-    name: "Alternative Format 1",
-    params: {
-      pickup_address: address_from_id,
-      delivery_address: address_to_id,
-      parcel: parcel_id,
-      currency: "NGN",
-    },
-  },
-  {
-    name: "Alternative Format 2",
-    params: {
-      address_from: address_from_id,
-      address_to: address_to_id,
-      parcel: parcel_id,
-    },
-  },
-  {
-    name: "Minimal Params",
-    params: {
-      pickup_address: address_from_id,
-      delivery_address: address_to_id,
-      parcel_id: parcel_id,
-    },
-  }
-];
+      {
+        name: "Live API Format",
+        params: {
+          pickup_address: address_from_id,
+          delivery_address: address_to_id,
+          parcel_id: parcel_id, // Use parcel_id instead of parcel
+          currency: "NGN",
+          cash_on_delivery: false,
+        },
+      },
+      {
+        name: "Alternative Format 1",
+        params: {
+          pickup_address: address_from_id,
+          delivery_address: address_to_id,
+          parcel: parcel_id,
+          currency: "NGN",
+        },
+      },
+      {
+        name: "Alternative Format 2",
+        params: {
+          address_from: address_from_id,
+          address_to: address_to_id,
+          parcel: parcel_id,
+        },
+      },
+      {
+        name: "Minimal Params",
+        params: {
+          pickup_address: address_from_id,
+          delivery_address: address_to_id,
+          parcel_id: parcel_id,
+        },
+      },
+    ];
 
     let ratesResponse;
     let successfulParams;
 
     // Try each parameter combination
-    for (const test of testParams) {
-      console.log(`🧪 Testing: ${test.name}`, test.params);
+    // for (const test of testParams) {
+    //   console.log(`🧪 Testing: ${test.name}`, test.params);
 
-      try {
-        ratesResponse = await terminalAfricaAPI.get("/rates/shipment", {
-          params: test.params,
-        });
-
-        console.log(`✅ ${test.name} SUCCESS!`);
-        successfulParams = test.params;
-        break;
-      } catch (testError) {
-        console.log(
-          `❌ ${test.name} failed:`,
-          testError.response?.data?.message || testError.message
-        );
-      }
+    try {
+      const ratePayload = {
+        pickup_address: address_from_id,
+        delivery_address: address_to_id,
+        parcel_id: parcel_id, // Use parcel_id instead of parcel
+        currency: "NGN",
+        cash_on_delivery: false,
+      };
+      const urlParams = new URLSearchParams(ratePayload).toString();
+      ratesResponse = await terminalAfricaAPI.get("/rates/shipment" + `?${urlParams}`);
+      console.dir(ratesResponse.data, { depth: null });
+      // console.log(`✅ ${test.name} SUCCESS!`);
+      // successfulParams = test.params;
+      // break;
+    } catch (testError) {
+      console.log(testError)
+      // console.log(
+      //   `❌ ${test.name} failed:`,
+      //   testError.response?.data?.message || testError.message,
+      // );
     }
+    // }
 
     if (!ratesResponse) {
       throw new Error(
-        "All parameter combinations failed. Last error: Valid parcel id must be provided"
+        "All parameter combinations failed. Last error: Valid parcel id must be provided",
       );
     }
 
     console.log(
-      `✅ ${ratesResponse.data?.data?.length || 0} rates fetched successfully`
+      `✅ ${ratesResponse.data?.data?.length || 0} rates fetched successfully`,
     );
 
     const rates = ratesResponse.data.data || [];
@@ -567,7 +582,7 @@ exports.createShipment = async (req, res) => {
 
     console.log(
       "📦 Creating shipment on Terminal Africa with data:",
-      shipmentData
+      shipmentData,
     );
 
     // Create shipment on Terminal Africa
@@ -576,7 +591,7 @@ exports.createShipment = async (req, res) => {
       createResponse = await terminalAfricaAPI.post("/shipments", shipmentData);
       console.log(
         "✅ Terminal Africa response:",
-        JSON.stringify(createResponse.data, null, 2)
+        JSON.stringify(createResponse.data, null, 2),
       );
     } catch (error) {
       console.error("❌ Terminal Africa API error:", {
@@ -587,7 +602,7 @@ exports.createShipment = async (req, res) => {
       throw new Error(
         `Terminal Africa error: ${
           error.response?.data?.message || error.message
-        }`
+        }`,
       );
     }
 
@@ -788,7 +803,7 @@ exports.createShipment = async (req, res) => {
 
     console.log(
       "📋 Shipment data for DB:",
-      JSON.stringify(shipmentDataForDB, null, 2)
+      JSON.stringify(shipmentDataForDB, null, 2),
     );
 
     // Create and save shipment
@@ -811,7 +826,7 @@ exports.createShipment = async (req, res) => {
     } catch (purchaseError) {
       console.log(
         "⚠️ Shipment created but not purchased:",
-        purchaseError.message
+        purchaseError.message,
       );
       shipment.status = "draft";
       await shipment.save();
@@ -926,7 +941,7 @@ exports.getShipmentById = async (req, res) => {
     // Get updated tracking info from Terminal Africa
     try {
       const response = await terminalAfricaAPI.get(
-        `/shipments/${shipment.terminalShipmentId}`
+        `/shipments/${shipment.terminalShipmentId}`,
       );
       const terminalShipment = response.data.data;
 
@@ -939,7 +954,7 @@ exports.getShipmentById = async (req, res) => {
     } catch (terminalError) {
       console.log(
         "Could not fetch updated tracking info:",
-        terminalError.message
+        terminalError.message,
       );
     }
 
@@ -986,7 +1001,7 @@ exports.cancelShipment = async (req, res) => {
 
     // Cancel on Terminal Africa
     await terminalAfricaAPI.post(
-      `/shipments/${shipment.terminalShipmentId}/cancel`
+      `/shipments/${shipment.terminalShipmentId}/cancel`,
     );
 
     // Update in database
