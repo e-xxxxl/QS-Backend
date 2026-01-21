@@ -5,8 +5,32 @@ const Admin = require('../models/Admin');
 const admins = [
   {
     name: 'Super Admin',
-    email: 'super@quickship.africa',
-    password: 'SuperAdmin@123', // Strong password
+    email: 'superadmin@quickship.africa',
+    password: 'Thomas2409#', // Strong password
+    role: 'super_admin',
+    permissions: {
+      canManageUsers: true,
+      canManageShipments: true,
+      canManageContent: true,
+      canViewAnalytics: true
+    }
+  },
+  {
+    name: 'Grace',
+    email: 'grace@quickship.africa',
+    password: 'Thomas2409#', // Strong password
+    role: 'super_admin',
+    permissions: {
+      canManageUsers: true,
+      canManageShipments: true,
+      canManageContent: true,
+      canViewAnalytics: true
+    }
+  },
+  {
+    name: 'Ajayi Thomas',
+    email: 'ajayithomas@quickship.africa',
+    password: 'Thomas2409#', // Strong password
     role: 'super_admin',
     permissions: {
       canManageUsers: true,

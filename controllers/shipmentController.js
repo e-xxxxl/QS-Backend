@@ -298,7 +298,7 @@ exports.getShippingRates = async (req, res) => {
       // successfulParams = test.params;
       // break;
     } catch (testError) {
-      console.log(testError)
+      console.log(testError)  
       // console.log(
       //   `❌ ${test.name} failed:`,
       //   testError.response?.data?.message || testError.message,
