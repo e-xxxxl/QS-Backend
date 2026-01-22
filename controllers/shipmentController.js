@@ -169,6 +169,278 @@ const createTerminalParcel = async (parcelData) => {
 // @desc    Get shipping rates
 // @route   POST /api/shipments/rates
 // @access  Private
+// exports.getShippingRates = async (req, res) => {
+//   try {
+//     const { address_from_id, address_to_id, parcel_id } = req.body;
+
+//     console.log("📊 Getting shipping rates for:", {
+//       address_from_id,
+//       address_to_id,
+//       parcel_id,
+//     });
+
+//     // Validate required fields
+//     if (!address_from_id || !address_to_id || !parcel_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Address from ID, address to ID, and parcel ID are required",
+//       });
+//     }
+
+//     // Debug: Try different parcel ID formats
+//     console.log("🔍 Testing different parcel ID formats...");
+
+//     // Try to fetch parcel with the provided ID
+//     try {
+//       const parcelResponse = await terminalAfricaAPI.get(
+//         `/parcels/${parcel_id}`,
+//       );
+//       console.log("✅ Parcel found with provided ID:", {
+//         parcel_id: parcelResponse.data.data.parcel_id,
+//         id: parcelResponse.data.data.id,
+//         _id: parcelResponse.data.data._id,
+//         weight: parcelResponse.data.data.weight,
+//       });
+//     } catch (error) {
+//       console.error("❌ Parcel NOT found with provided ID:", {
+//         parcel_id: parcel_id,
+//         error: error.message,
+//         response: error.response?.data,
+//       });
+
+//       // Try alternative ID formats
+//       console.log("🔄 Trying alternative ID formats...");
+
+//       // If parcel_id starts with PC-, maybe we need just the MongoDB _id
+//       if (parcel_id.startsWith("PC-")) {
+//         try {
+//           // Try to get parcel by listing all and finding it
+//           const allParcels = await terminalAfricaAPI.get("/parcels?limit=10");
+//           const matchingParcel = allParcels.data.data.find(
+//             (p) => p.parcel_id === parcel_id || p.id === parcel_id,
+//           );
+
+//           if (matchingParcel) {
+//             console.log("🔍 Found parcel in list:", {
+//               parcel_id: matchingParcel.parcel_id,
+//               id: matchingParcel.id,
+//               _id: matchingParcel._id,
+//             });
+//           } else {
+//             console.log("❌ Parcel not found in recent parcels list");
+//           }
+//         } catch (listError) {
+//           console.error("❌ Could not list parcels:", listError.message);
+//         }
+//       }
+//     }
+
+//     // Prepare the request parameters - try different combinations
+//     console.log("🔍 Testing different parameter combinations...");
+
+//     const testParams = [
+//       {
+//         name: "Live API Format",
+//         params: {
+//           pickup_address: address_from_id,
+//           delivery_address: address_to_id,
+//           parcel_id: parcel_id, // Use parcel_id instead of parcel
+//           currency: "NGN",
+//           cash_on_delivery: false,
+//         },
+//       },
+//       {
+//         name: "Alternative Format 1",
+//         params: {
+//           pickup_address: address_from_id,
+//           delivery_address: address_to_id,
+//           parcel: parcel_id,
+//           currency: "NGN",
+//         },
+//       },
+//       {
+//         name: "Alternative Format 2",
+//         params: {
+//           address_from: address_from_id,
+//           address_to: address_to_id,
+//           parcel: parcel_id,
+//         },
+//       },
+//       {
+//         name: "Minimal Params",
+//         params: {
+//           pickup_address: address_from_id,
+//           delivery_address: address_to_id,
+//           parcel_id: parcel_id,
+//         },
+//       },
+//     ];
+
+//     let ratesResponse;
+//     let successfulParams;
+
+//     // Try each parameter combination
+//     // for (const test of testParams) {
+//     //   console.log(`🧪 Testing: ${test.name}`, test.params);
+
+//     try {
+//       const ratePayload = {
+//         pickup_address: address_from_id,
+//         delivery_address: address_to_id,
+//         parcel_id: parcel_id, // Use parcel_id instead of parcel
+//         currency: "NGN",
+//         cash_on_delivery: false,
+//       };
+//       const urlParams = new URLSearchParams(ratePayload).toString();
+//       ratesResponse = await terminalAfricaAPI.get("/rates/shipment" + `?${urlParams}`);
+//       console.dir(ratesResponse.data, { depth: null });
+//       // console.log(`✅ ${test.name} SUCCESS!`);
+//       // successfulParams = test.params;
+//       // break;
+//     } catch (testError) {
+//       console.log(testError)  
+//       // console.log(
+//       //   `❌ ${test.name} failed:`,
+//       //   testError.response?.data?.message || testError.message,
+//       // );
+//     }
+//     // }
+
+//     if (!ratesResponse) {
+//       throw new Error(
+//         "All parameter combinations failed. Last error: Valid parcel id must be provided",
+//       );
+//     }
+
+//     console.log(
+//       `✅ ${ratesResponse.data?.data?.length || 0} rates fetched successfully`,
+//     );
+
+//     const rates = ratesResponse.data.data || [];
+
+//     if (rates.length > 0) {
+//       console.log("📋 Sample rate details:", {
+//         carrier: rates[0].carrier_name,
+//         service: rates[0].carrier_rate_description,
+//         amount: rates[0].amount,
+//         currency: rates[0].currency,
+//         delivery_time: rates[0].delivery_time,
+//         rate_id: rates[0].rate_id,
+//       });
+//     } else {
+//       console.log("⚠️ No rates returned from Terminal Africa");
+//     }
+
+//     // Format rates for frontend
+//     const formattedRates = rates.map((rate) => {
+//       return {
+//         rate_id: rate.rate_id || rate.id,
+//         id: rate.rate_id || rate.id,
+//         carrier_id: rate.carrier_id,
+//         carrier_name: rate.carrier_name,
+//         carrier_logo: rate.carrier_logo,
+//         service: rate.carrier_rate_description || "Standard Delivery",
+//         amount: rate.amount || 0,
+//         currency: rate.currency || "NGN",
+//         estimated_delivery: rate.delivery_time || "3-5 business days",
+//         delivery_time: rate.delivery_time,
+//         pickup_time: rate.pickup_time,
+//         includes_insurance: rate.includes_insurance || false,
+//         insurance_coverage: rate.insurance_coverage || 0,
+//         insurance_fee: rate.insurance_fee || 0,
+//         metadata: rate.metadata || {},
+//         _original: rate,
+//       };
+//     });
+
+//     // Sort by price (lowest first)
+//     formattedRates.sort((a, b) => a.amount - b.amount);
+
+//     res.status(200).json({
+//       success: true,
+//       message: `Found ${formattedRates.length} shipping rates`,
+//       data: formattedRates,
+//       metadata: {
+//         address_from_id,
+//         address_to_id,
+//         parcel_id,
+//         currency: "NGN",
+//         timestamp: new Date().toISOString(),
+//         rates_count: formattedRates.length,
+//         successful_params: successfulParams,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("❌ Error getting shipping rates:", {
+//       message: error.message,
+//       stack: error.stack,
+//       endpoint: "/rates/shipment",
+//       request_data: {
+//         address_from_id: req.body?.address_from_id,
+//         address_to_id: req.body?.address_to_id,
+//         parcel_id: req.body?.parcel_id,
+//       },
+//       axios_config: error.config
+//         ? {
+//             url: error.config.url,
+//             method: error.config.method,
+//             baseURL: error.config.baseURL,
+//             params: error.config.params,
+//             headers: {
+//               ...error.config.headers,
+//               Authorization: error.config.headers?.Authorization
+//                 ? "[REDACTED]"
+//                 : "Missing",
+//             },
+//           }
+//         : "No config",
+//       response: {
+//         status: error.response?.status,
+//         statusText: error.response?.statusText,
+//         data: error.response?.data,
+//         headers: error.response?.headers,
+//       },
+//     });
+
+//     // Provide helpful error messages
+//     let errorMessage = "Failed to get shipping rates";
+//     let statusCode = 500;
+
+//     if (error.response?.data) {
+//       if (error.response.data.message) {
+//         errorMessage = error.response.data.message;
+//       }
+//       if (error.response.data.error) {
+//         errorMessage = error.response.data.error;
+//       }
+//       statusCode = error.response.status;
+//     } else if (error.message.includes("timeout")) {
+//       errorMessage = "Request timeout. Please try again.";
+//       statusCode = 408;
+//     } else if (error.message.includes("Network Error")) {
+//       errorMessage = "Network error. Check your internet connection.";
+//       statusCode = 503;
+//     } else if (error.message.includes("not found")) {
+//       errorMessage = `Address or parcel not found: ${error.message}`;
+//       statusCode = 404;
+//     }
+
+//     res.status(statusCode).json({
+//       success: false,
+//       message: errorMessage,
+//       debug:
+//         process.env.NODE_ENV === "development"
+//           ? {
+//               endpoint: "/rates/shipment",
+//               error: error.message,
+//               response: error.response?.data,
+//               request_params: error.config?.params,
+//             }
+//           : undefined,
+//     });
+//   }
+// };
+
 exports.getShippingRates = async (req, res) => {
   try {
     const { address_from_id, address_to_id, parcel_id } = req.body;
@@ -187,159 +459,120 @@ exports.getShippingRates = async (req, res) => {
       });
     }
 
-    // Debug: Try different parcel ID formats
-    console.log("🔍 Testing different parcel ID formats...");
-
-    // Try to fetch parcel with the provided ID
-    try {
-      const parcelResponse = await terminalAfricaAPI.get(
-        `/parcels/${parcel_id}`,
-      );
-      console.log("✅ Parcel found with provided ID:", {
-        parcel_id: parcelResponse.data.data.parcel_id,
-        id: parcelResponse.data.data.id,
-        _id: parcelResponse.data.data._id,
-        weight: parcelResponse.data.data.weight,
-      });
-    } catch (error) {
-      console.error("❌ Parcel NOT found with provided ID:", {
+    // Function to fetch rates with retry logic
+    const fetchRatesWithRetry = async (retryCount = 0, maxRetries = 3) => {
+      const queryParams = {
+        pickup_address: address_from_id,
+        delivery_address: address_to_id,
         parcel_id: parcel_id,
-        error: error.message,
-        response: error.response?.data,
-      });
+        currency: "NGN",
+        cash_on_delivery: false
+      };
 
-      // Try alternative ID formats
-      console.log("🔄 Trying alternative ID formats...");
+      const queryString = new URLSearchParams(queryParams).toString();
+      const endpoint = `/rates/shipment?${queryString}`;
+      
+      console.log(`🌐 Attempt ${retryCount + 1}/${maxRetries + 1}: Calling API:`, endpoint);
 
-      // If parcel_id starts with PC-, maybe we need just the MongoDB _id
-      if (parcel_id.startsWith("PC-")) {
-        try {
-          // Try to get parcel by listing all and finding it
-          const allParcels = await terminalAfricaAPI.get("/parcels?limit=10");
-          const matchingParcel = allParcels.data.data.find(
-            (p) => p.parcel_id === parcel_id || p.id === parcel_id,
-          );
-
-          if (matchingParcel) {
-            console.log("🔍 Found parcel in list:", {
-              parcel_id: matchingParcel.parcel_id,
-              id: matchingParcel.id,
-              _id: matchingParcel._id,
-            });
-          } else {
-            console.log("❌ Parcel not found in recent parcels list");
-          }
-        } catch (listError) {
-          console.error("❌ Could not list parcels:", listError.message);
+      try {
+        const response = await terminalAfricaAPI.get(endpoint);
+        const rates = response.data?.data || [];
+        
+        console.log(`📊 Attempt ${retryCount + 1}: Found ${rates.length} rates`);
+        
+        if (rates.length === 0 && retryCount < maxRetries) {
+          // Wait before retrying (exponential backoff)
+          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          console.log(`⏳ No rates found. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchRatesWithRetry(retryCount + 1, maxRetries);
         }
+        
+        return { success: true, data: response.data };
+      } catch (error) {
+        if (retryCount < maxRetries) {
+          const delay = Math.pow(2, retryCount) * 1000;
+          console.log(`⚠️ Error on attempt ${retryCount + 1}: ${error.message}. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchRatesWithRetry(retryCount + 1, maxRetries);
+        }
+        throw error;
+      }
+    };
+
+    // Try to fetch rates with retry logic
+    const ratesResponse = await fetchRatesWithRetry();
+    const rates = ratesResponse.data?.data || [];
+
+    // If still no rates after retries, try the quotes endpoint as fallback
+    if (rates.length === 0) {
+      console.log("🔄 No rates from shipment endpoint. Trying quotes endpoint...");
+      
+      try {
+        const quotesData = {
+          pickup_address: address_from_id,
+          delivery_address: address_to_id,
+          parcel: parcel_id,  // Note: quotes uses 'parcel' not 'parcel_id'
+          currency: "NGN",
+          cash_on_delivery: false
+        };
+
+        const quotesResponse = await terminalAfricaAPI.post('/rates/shipment/quotes', quotesData);
+        const quotesRates = quotesResponse.data?.data || [];
+        
+        console.log(`📊 Quotes endpoint returned ${quotesRates.length} rates`);
+        
+        if (quotesRates.length > 0) {
+          // Use quotes data as rates
+          rates.push(...quotesRates);
+        }
+      } catch (quotesError) {
+        console.log("⚠️ Quotes endpoint also failed:", quotesError.message);
       }
     }
 
-    // Prepare the request parameters - try different combinations
-    console.log("🔍 Testing different parameter combinations...");
-
-    const testParams = [
-      {
-        name: "Live API Format",
-        params: {
-          pickup_address: address_from_id,
-          delivery_address: address_to_id,
-          parcel_id: parcel_id, // Use parcel_id instead of parcel
-          currency: "NGN",
-          cash_on_delivery: false,
-        },
-      },
-      {
-        name: "Alternative Format 1",
-        params: {
-          pickup_address: address_from_id,
-          delivery_address: address_to_id,
-          parcel: parcel_id,
-          currency: "NGN",
-        },
-      },
-      {
-        name: "Alternative Format 2",
-        params: {
-          address_from: address_from_id,
-          address_to: address_to_id,
-          parcel: parcel_id,
-        },
-      },
-      {
-        name: "Minimal Params",
-        params: {
+    // If still no rates, verify addresses might need to be "activated"
+    if (rates.length === 0) {
+      console.log("🔍 Checking if addresses need verification...");
+      
+      // Sometimes addresses need to be "verified" before rates can be fetched
+      try {
+        // Try to get address details to ensure they're active
+        await Promise.all([
+          terminalAfricaAPI.get(`/addresses/${address_from_id}`),
+          terminalAfricaAPI.get(`/addresses/${address_to_id}`)
+        ]);
+        
+        // Wait a moment and try one more time
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const finalQueryParams = {
           pickup_address: address_from_id,
           delivery_address: address_to_id,
           parcel_id: parcel_id,
-        },
-      },
-    ];
-
-    let ratesResponse;
-    let successfulParams;
-
-    // Try each parameter combination
-    // for (const test of testParams) {
-    //   console.log(`🧪 Testing: ${test.name}`, test.params);
-
-    try {
-      const ratePayload = {
-        pickup_address: address_from_id,
-        delivery_address: address_to_id,
-        parcel_id: parcel_id, // Use parcel_id instead of parcel
-        currency: "NGN",
-        cash_on_delivery: false,
-      };
-      const urlParams = new URLSearchParams(ratePayload).toString();
-      ratesResponse = await terminalAfricaAPI.get("/rates/shipment" + `?${urlParams}`);
-      console.dir(ratesResponse.data, { depth: null });
-      // console.log(`✅ ${test.name} SUCCESS!`);
-      // successfulParams = test.params;
-      // break;
-    } catch (testError) {
-      console.log(testError)  
-      // console.log(
-      //   `❌ ${test.name} failed:`,
-      //   testError.response?.data?.message || testError.message,
-      // );
-    }
-    // }
-
-    if (!ratesResponse) {
-      throw new Error(
-        "All parameter combinations failed. Last error: Valid parcel id must be provided",
-      );
+          currency: "NGN",
+          cash_on_delivery: false
+        };
+        
+        const finalQueryString = new URLSearchParams(finalQueryParams).toString();
+        const finalResponse = await terminalAfricaAPI.get(`/rates/shipment?${finalQueryString}`);
+        rates = finalResponse.data?.data || [];
+        
+        console.log(`📊 Final attempt returned ${rates.length} rates`);
+      } catch (finalError) {
+        console.log("⚠️ Final attempt also failed:", finalError.message);
+      }
     }
 
-    console.log(
-      `✅ ${ratesResponse.data?.data?.length || 0} rates fetched successfully`,
-    );
-
-    const rates = ratesResponse.data.data || [];
-
+    // Format the response
     if (rates.length > 0) {
-      console.log("📋 Sample rate details:", {
-        carrier: rates[0].carrier_name,
-        service: rates[0].carrier_rate_description,
-        amount: rates[0].amount,
-        currency: rates[0].currency,
-        delivery_time: rates[0].delivery_time,
-        rate_id: rates[0].rate_id,
-      });
-    } else {
-      console.log("⚠️ No rates returned from Terminal Africa");
-    }
-
-    // Format rates for frontend
-    const formattedRates = rates.map((rate) => {
-      return {
+      const formattedRates = rates.map((rate) => ({
         rate_id: rate.rate_id || rate.id,
         id: rate.rate_id || rate.id,
         carrier_id: rate.carrier_id,
         carrier_name: rate.carrier_name,
         carrier_logo: rate.carrier_logo,
-        service: rate.carrier_rate_description || "Standard Delivery",
+        service: rate.carrier_rate_description || rate.service_name || "Standard Delivery",
         amount: rate.amount || 0,
         currency: rate.currency || "NGN",
         estimated_delivery: rate.delivery_time || "3-5 business days",
@@ -349,60 +582,50 @@ exports.getShippingRates = async (req, res) => {
         insurance_coverage: rate.insurance_coverage || 0,
         insurance_fee: rate.insurance_fee || 0,
         metadata: rate.metadata || {},
-        _original: rate,
-      };
-    });
+        _original: rate
+      }));
 
-    // Sort by price (lowest first)
-    formattedRates.sort((a, b) => a.amount - b.amount);
+      // Sort by price (lowest first)
+      formattedRates.sort((a, b) => a.amount - b.amount);
 
-    res.status(200).json({
-      success: true,
-      message: `Found ${formattedRates.length} shipping rates`,
-      data: formattedRates,
-      metadata: {
-        address_from_id,
-        address_to_id,
-        parcel_id,
-        currency: "NGN",
-        timestamp: new Date().toISOString(),
-        rates_count: formattedRates.length,
-        successful_params: successfulParams,
-      },
-    });
+      return res.status(200).json({
+        success: true,
+        message: `Found ${formattedRates.length} shipping rates`,
+        data: formattedRates,
+        metadata: {
+          address_from_id,
+          address_to_id,
+          parcel_id,
+          currency: "NGN",
+          timestamp: new Date().toISOString(),
+          rates_count: formattedRates.length
+        }
+      });
+    } else {
+      return res.status(200).json({
+        success: true,
+        message: "No shipping rates available for this route at the moment",
+        data: [],
+        metadata: {
+          address_from_id,
+          address_to_id,
+          parcel_id,
+          currency: "NGN",
+          timestamp: new Date().toISOString(),
+          rates_count: 0,
+          note: "You might need to try again in a few moments. First-time address lookups can take a moment to process."
+        }
+      });
+    }
+
   } catch (error) {
     console.error("❌ Error getting shipping rates:", {
       message: error.message,
-      stack: error.stack,
       endpoint: "/rates/shipment",
-      request_data: {
-        address_from_id: req.body?.address_from_id,
-        address_to_id: req.body?.address_to_id,
-        parcel_id: req.body?.parcel_id,
-      },
-      axios_config: error.config
-        ? {
-            url: error.config.url,
-            method: error.config.method,
-            baseURL: error.config.baseURL,
-            params: error.config.params,
-            headers: {
-              ...error.config.headers,
-              Authorization: error.config.headers?.Authorization
-                ? "[REDACTED]"
-                : "Missing",
-            },
-          }
-        : "No config",
-      response: {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        headers: error.response?.headers,
-      },
+      request_data: req.body,
+      response: error.response?.data
     });
 
-    // Provide helpful error messages
     let errorMessage = "Failed to get shipping rates";
     let statusCode = 500;
 
@@ -410,33 +633,15 @@ exports.getShippingRates = async (req, res) => {
       if (error.response.data.message) {
         errorMessage = error.response.data.message;
       }
-      if (error.response.data.error) {
-        errorMessage = error.response.data.error;
-      }
-      statusCode = error.response.status;
-    } else if (error.message.includes("timeout")) {
-      errorMessage = "Request timeout. Please try again.";
-      statusCode = 408;
-    } else if (error.message.includes("Network Error")) {
-      errorMessage = "Network error. Check your internet connection.";
-      statusCode = 503;
-    } else if (error.message.includes("not found")) {
-      errorMessage = `Address or parcel not found: ${error.message}`;
-      statusCode = 404;
+      statusCode = error.response.status || 500;
     }
 
     res.status(statusCode).json({
       success: false,
       message: errorMessage,
-      debug:
-        process.env.NODE_ENV === "development"
-          ? {
-              endpoint: "/rates/shipment",
-              error: error.message,
-              response: error.response?.data,
-              request_params: error.config?.params,
-            }
-          : undefined,
+      ...(process.env.NODE_ENV === 'development' && {
+        debug: error.response?.data
+      })
     });
   }
 };

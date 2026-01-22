@@ -17,6 +17,7 @@ const emailRoutes = require('./routes/emailRoutes');
 // In your main server file (server.js or app.js)
 const adminRoutes = require('./routes/adminRoutes');
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
+const keepAliveService = require('./services/keepAliveService');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -33,6 +34,25 @@ app.use(cors({
 app.use(express.json({ limit: "10kb" }));
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// Health endpoint for external pinging
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'QuickShip API',
+    version: process.env.npm_package_version || '1.0',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    database: 'connected', // Add your DB status check here
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Simple ping endpoint
+app.get('/ping', (req, res) => {
+  res.send('pong 🏓');
+});
 
 // ✅ ROUTES FIRST
 app.use("/api/quotes", quoteRoutes);
@@ -70,3 +90,9 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+
+// Start keep-alive service in production
+  if (process.env.NODE_ENV === 'production') {
+    keepAliveService.start();
+  }
