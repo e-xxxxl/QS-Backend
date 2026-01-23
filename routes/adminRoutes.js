@@ -7,7 +7,9 @@ const {
   getAllUsers,
   getAllShipments,
   updateShipmentStatus,
-  updateUserStatus
+  updateUserStatus,
+  deleteUser,
+  deleteShipment
 } = require('../controllers/adminController');
 
 // All routes protected by admin auth
@@ -23,5 +25,7 @@ router.patch('/users/:id/status', updateUserStatus);
 // Shipment management routes
 router.get('/shipments', getAllShipments);
 router.patch('/shipments/:id/status', updateShipmentStatus);
+router.delete('/users/:id',  deleteUser);
+router.delete('/shipments/:id',  deleteShipment);
 
 module.exports = router;

@@ -509,3 +509,68 @@ exports.updateShipmentStatus = async (req, res) => {
     });
   }
 };
+
+
+// @desc    Delete user
+// @route   DELETE /api/admin/users/:id
+// @access  Private/Admin
+exports.deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Delete user's shipments first
+    await Shipment.deleteMany({ user: user._id });
+    
+    // Delete the user
+    await User.findByIdAndDelete(req.params.id);
+    
+    res.status(200).json({
+      success: true,
+      message: 'User and all associated shipments deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Delete shipment
+// @route   DELETE /api/admin/shipments/:id
+// @access  Private/Admin
+exports.deleteShipment = async (req, res) => {
+  try {
+    const shipment = await Shipment.findById(req.params.id);
+    
+    if (!shipment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Shipment not found'
+      });
+    }
+    
+    await Shipment.findByIdAndDelete(req.params.id);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Shipment deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting shipment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
