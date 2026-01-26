@@ -17,6 +17,7 @@ const emailRoutes = require('./routes/emailRoutes');
 // In your main server file (server.js or app.js)
 const adminRoutes = require('./routes/adminRoutes');
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const keepAliveService = require('./services/keepAliveService');
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -79,6 +80,9 @@ app.use('/api/shipments', shipmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/admin', adminRoutes);
+// Use the analytics routes
+app.use('/api/analytics', analyticsRoutes);
+
 
 // ✅ ERROR HANDLER LAST
 app.use((err, req, res, next) => {

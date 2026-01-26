@@ -574,3 +574,76 @@ exports.deleteShipment = async (req, res) => {
     });
   }
 };
+
+
+// @desc    Update shipment details (basic)
+// @route   PUT /api/admin/shipments/:id
+// @access  Private/Admin
+exports.updateShipment = async (req, res) => {
+  try {
+    const {
+      status,
+      weight,
+      packageType,
+      'payment.amount': paymentAmount,
+      'payment.status': paymentStatus
+    } = req.body;
+
+    // Build update object
+    const updateData = {};
+    
+    if (status) updateData.status = status;
+    if (weight !== undefined) updateData.weight = weight;
+    if (packageType) updateData.packageType = packageType;
+    
+    // Update payment info if provided
+    if (paymentAmount !== undefined || paymentStatus) {
+      updateData.payment = updateData.payment || {};
+      if (paymentAmount !== undefined) updateData.payment.amount = parseFloat(paymentAmount);
+      if (paymentStatus) updateData.payment.status = paymentStatus;
+      
+      // If marking as paid, set paidAt
+      if (paymentStatus === 'paid' && !updateData.payment.paidAt) {
+        updateData.payment.paidAt = new Date();
+      }
+    }
+
+    // Find and update shipment
+    const shipment = await Shipment.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).populate('user', 'firstName lastName email');
+
+    if (!shipment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Shipment not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Shipment updated successfully',
+      data: { shipment }
+    });
+  } catch (error) {
+    console.error('Error updating shipment:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
