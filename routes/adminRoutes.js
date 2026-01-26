@@ -10,7 +10,8 @@ const {
   updateUserStatus,
   deleteUser,
   deleteShipment,
-  updateShipment
+  updateShipment,
+  updateUser
 } = require('../controllers/adminController');
 
 // All routes protected by admin auth
@@ -28,6 +29,8 @@ router.get('/shipments', getAllShipments);
 router.patch('/shipments/:id/status', updateShipmentStatus);
 router.delete('/users/:id',  deleteUser);
 router.put('/shipments/:id', updateShipment); // Add this line
+// Add this route
+router.put('/users/:id', updateUser);
 router.delete('/shipments/:id',  deleteShipment);
 
 module.exports = router;
