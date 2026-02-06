@@ -2,8 +2,15 @@ const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
 const { protect } = require('../middleware/authMiddleware');
+const {
+  apiLimiter,
+  purchaseLimiter,
+  strictLimiter
+} = require('../middleware/rateLimiter'); // Import rate limiters
+
 
 // Apply authentication middleware to all routes
+router.use(strictLimiter);
 router.use(protect);
 
 // ========== PAYMENT ROUTES ==========

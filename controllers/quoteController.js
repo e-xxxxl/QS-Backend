@@ -28,12 +28,12 @@ exports.getQuoteRates = async (req, res) => {
     const payload = {
       pickup_address: {
         city: fromCity,
-        state: fromState || "Lagos",
+        state: fromState ,
         country: fromCountry
       },
       delivery_address: {
         city: toCity,
-        state: toState || "FCT",
+        state: toState ,
         country: toCountry
       },
       parcel: {
@@ -68,7 +68,7 @@ exports.getQuoteRates = async (req, res) => {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
-        timeout: 30000
+        timeout: 50000
       }
     );
 

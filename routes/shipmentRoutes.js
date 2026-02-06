@@ -14,8 +14,16 @@ const {
   debugParcelCreation
 } = require('../controllers/shipmentController');
 
+const {
+  apiLimiter,
+  purchaseLimiter
+} = require('../middleware/rateLimiter'); // Import rate limiters
+
+
+
 // All routes are protected
 router.use(protect);
+router.use(apiLimiter);
 
 // Create address on Terminal Africa
 router.post('/address', createAddress);

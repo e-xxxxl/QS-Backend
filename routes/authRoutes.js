@@ -8,9 +8,18 @@ const {
   forgotPassword,
     resetPassword
 } = require('../controllers/authController');
+
+const {
+  apiLimiter,
+  strictLimiter,
+  purchaseLimiter
+} = require('../middleware/rateLimiter'); // Import rate limiters
+
+
 const { protect } = require('../middleware/authMiddleware');
 
 // Public routes
+router.use(strictLimiter);
 router.post('/signup', signup);
 router.post('/verify-otp', verifyOTP);
 router.post('/resend-otp', resendOTP);
