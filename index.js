@@ -18,6 +18,7 @@ const emailRoutes = require('./routes/emailRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 const keepAliveService = require('./services/keepAliveService');
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -82,6 +83,8 @@ app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/admin', adminRoutes);
 // Use the analytics routes
 app.use('/api/analytics', analyticsRoutes);
+
+app.use('/api/contact', contactRoutes);
 
 
 // ✅ ERROR HANDLER LAST
