@@ -42,13 +42,13 @@
 //   purchaseLimiter
 // };
 
-
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit'); // Add this import
 
 // General API rate limiter
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100,
   message: {
     success: false,
     error: 'Too many requests from this IP, please try again after 15 minutes'
@@ -57,42 +57,46 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Strict rate limiter for sensitive operations
+// Strict rate limiter with proper IPv6 handling
 const strictLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Reduced to 5 attempts per 15 minutes for sensitive operations
+  max: 5,
   message: {
     success: false,
     error: 'Too many attempts, please try again after 15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful logins towards the limit
+  skipSuccessfulRequests: true,
   keyGenerator: (req) => {
-    // For login, use email in the key to prevent brute force on specific accounts
+    // For login, use email combined with properly handled IP
     if (req.path === '/login' && req.body.email) {
-      return `${req.ip}-${req.body.email.toLowerCase()}`;
+      // Use ipKeyGenerator for the IP part to handle IPv6 subnets correctly
+      const ipKey = ipKeyGenerator(req.ip);
+      return `${ipKey}-${req.body.email.toLowerCase()}`;
     }
-    return req.ip;
+    // For other routes, just use the properly handled IP
+    return ipKeyGenerator(req.ip);
   }
 });
 
-// OTP-specific limiter (more lenient since users might need multiple attempts)
+// OTP-specific limiter
 const otpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 OTP requests per hour
+  max: 10,
   message: {
     success: false,
     error: 'Too many OTP requests. Please try again after an hour.'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip) // Use ipKeyGenerator here too
 });
 
-// Login-specific limiter with shorter window but stricter limits
+// Login-specific limiter
 const loginLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // Max 10 login attempts per hour
+  max: 10,
   message: {
     success: false,
     error: 'Too many login attempts. Please try again after an hour.'
@@ -100,6 +104,13 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
+  keyGenerator: (req) => {
+    // Combine properly handled IP with email for login-specific limiting
+    const ipKey = ipKeyGenerator(req.ip);
+    return req.body.email ? 
+      `${ipKey}-${req.body.email.toLowerCase()}` : 
+      ipKey;
+  }
 });
 
 // Purchase/shipment creation specific limiter
@@ -112,6 +123,7 @@ const purchaseLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip) // Use ipKeyGenerator here too
 });
 
 module.exports = {

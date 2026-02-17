@@ -63,7 +63,7 @@ const { protect } = require('../middleware/authMiddleware');
 router.post('/signup', strictLimiter, signup);
 router.post('/verify-otp', otpLimiter, verifyOTP); // More lenient for OTP verification
 router.post('/resend-otp', strictLimiter, resendOTP); // Stricter for resend
-router.post('/login', loginLimiter, login); // Use login-specific limiter
+router.post('/login',  login); // Use login-specific limiter
 router.post('/forgot-password', strictLimiter, forgotPassword);
 router.post('/reset-password', apiLimiter, resetPassword);
 
