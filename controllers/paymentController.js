@@ -387,89 +387,96 @@ exports.verifyAndCreateShipment = async (req, res) => {
       try {
         // First, create shipment on Terminal Africa
         // First, create shipment on Terminal Africa
-try {
-  console.log('📦 Calling Terminal Africa with shipment data...');
+        terminalResponse = await terminalAfricaService.createShipment({
+  address_from_id: shipment_data.address_from_id,
+  address_to_id: shipment_data.address_to_id,
+  parcel_id: shipment_data.parcel_id,        // ← Make sure this is always passed
+  rate_id: shipment_data.rate_id,
+  metadata: shipment_data.metadata || {}
+});
+// try {
+//   console.log('📦 Calling Terminal Africa with shipment data...');
   
-  terminalResponse = await terminalAfricaService.createShipment({
-    address_from_id: shipment_data.address_from_id,
-    address_to_id: shipment_data.address_to_id,
-    parcel_id: shipment_data.parcel_id,
-    rate_id: shipment_data.rate_id,
-    metadata: shipment_data.metadata || {}
-  });
+//   terminalResponse = await terminalAfricaService.createShipment({
+//     address_from_id: shipment_data.address_from_id,
+//     address_to_id: shipment_data.address_to_id,
+//     parcel_id: shipment_data.parcel_id,
+//     rate_id: shipment_data.rate_id,
+//     metadata: shipment_data.metadata || {}
+//   });
 
-  console.log('✅ Terminal Africa response:', JSON.stringify(terminalResponse, null, 2));
+//   console.log('✅ Terminal Africa response:', JSON.stringify(terminalResponse, null, 2));
 
-  if (!terminalResponse.success) {
-    throw new Error(`Terminal Africa API failed: ${terminalResponse.message || 'Unknown error'}`);
-  }
+//   if (!terminalResponse.success) {
+//     throw new Error(`Terminal Africa API failed: ${terminalResponse.message || 'Unknown error'}`);
+//   }
 
-  // Ensure we have tracking number and carrier
-  if (!terminalResponse.tracking_number || terminalResponse.tracking_number === 'pending') {
-    console.log('⚠️ No tracking number from Terminal Africa, generating one...');
-    terminalResponse.tracking_number = 'TRACK_' + Date.now();
-  }
+//   // Ensure we have tracking number and carrier
+//   if (!terminalResponse.tracking_number || terminalResponse.tracking_number === 'pending') {
+//     console.log('⚠️ No tracking number from Terminal Africa, generating one...');
+//     terminalResponse.tracking_number = 'TRACK_' + Date.now();
+//   }
 
-  if (!terminalResponse.carrier_name || terminalResponse.carrier_name === 'unknown') {
-    console.log('⚠️ No carrier name from Terminal Africa, using default...');
-    terminalResponse.carrier_name = shipment_data.metadata?.carrier_name || 'Fez Delivery';
-    terminalResponse.carrier = shipment_data.metadata?.carrier || 'quickdelivery';
-  }
+//   if (!terminalResponse.carrier_name || terminalResponse.carrier_name === 'unknown') {
+//     console.log('⚠️ No carrier name from Terminal Africa, using default...');
+//     terminalResponse.carrier_name = shipment_data.metadata?.carrier_name || 'Fez Delivery';
+//     terminalResponse.carrier = shipment_data.metadata?.carrier || 'quickdelivery';
+//   }
 
-} catch (terminalError) {
-  console.error('❌ Failed to create on Terminal Africa:', terminalError.message);
+// } catch (terminalError) {
+//   console.error('❌ Failed to create on Terminal Africa:', terminalError.message);
   
-  // If Terminal Africa fails but we have metadata, create a local shipment
-  if (shipment_data.metadata) {
-    console.log('⚠️ Terminal Africa failed, creating local shipment record...');
-    terminalResponse = {
-      success: true,
-      shipment_id: 'local-' + Date.now(),
-      tracking_number: 'TRACK_' + Date.now(),
-      status: 'pending',
-      carrier: shipment_data.metadata.carrier || 'quickdelivery',
-      carrier_name: shipment_data.metadata.carrier_name || 'Fez Delivery',
-      rate_id: shipment_data.rate_id,
-      amount: parseFloat(shipment_data.metadata.total_amount) || paymentData.amount / 100,
-      currency: shipment_data.metadata.currency || paymentData.currency || 'NGN',
-      note: 'Created locally due to Terminal Africa failure'
-    };
-  } else {
-    // Attempt refund since Terminal Africa failed
-    try {
-      console.log('💰 Attempting refund...');
+//   // If Terminal Africa fails but we have metadata, create a local shipment
+//   if (shipment_data.metadata) {
+//     console.log('⚠️ Terminal Africa failed, creating local shipment record...');
+//     terminalResponse = {
+//       success: true,
+//       shipment_id: 'local-' + Date.now(),
+//       tracking_number: 'TRACK_' + Date.now(),
+//       status: 'pending',
+//       carrier: shipment_data.metadata.carrier || 'quickdelivery',
+//       carrier_name: shipment_data.metadata.carrier_name || 'Fez Delivery',
+//       rate_id: shipment_data.rate_id,
+//       amount: parseFloat(shipment_data.metadata.total_amount) || paymentData.amount / 100,
+//       currency: shipment_data.metadata.currency || paymentData.currency || 'NGN',
+//       note: 'Created locally due to Terminal Africa failure'
+//     };
+//   } else {
+//     // Attempt refund since Terminal Africa failed
+//     try {
+//       console.log('💰 Attempting refund...');
       
-      const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-      const refundResponse = await axios.post(
-        'https://api.paystack.co/refund',
-        {
-          transaction: reference,
-          amount: paymentData.amount
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${paystackSecretKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+//       const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+//       const refundResponse = await axios.post(
+//         'https://api.paystack.co/refund',
+//         {
+//           transaction: reference,
+//           amount: paymentData.amount
+//         },
+//         {
+//           headers: {
+//             'Authorization': `Bearer ${paystackSecretKey}`,
+//             'Content-Type': 'application/json'
+//           }
+//         }
+//       );
       
-      if (refundResponse.data?.status) {
-        console.log('✅ Payment refunded successfully');
-      } else {
-        console.error('❌ Refund failed:', refundResponse.data?.message);
-      }
-    } catch (refundError) {
-      console.error('❌ Failed to refund payment:', refundError.message);
-    }
+//       if (refundResponse.data?.status) {
+//         console.log('✅ Payment refunded successfully');
+//       } else {
+//         console.error('❌ Refund failed:', refundResponse.data?.message);
+//       }
+//     } catch (refundError) {
+//       console.error('❌ Failed to refund payment:', refundError.message);
+//     }
     
-    return res.status(500).json({
-      success: false,
-      message: `Failed to create shipment on Terminal Africa: ${terminalError.message}`,
-      payment_refunded: true
-    });
-  }
-}
+//     return res.status(500).json({
+//       success: false,
+//       message: `Failed to create shipment on Terminal Africa: ${terminalError.message}`,
+//       payment_refunded: true
+//     });
+//   }
+// }
 
         // Get original amount from metadata or payment data
         const originalAmount = shipment_data.metadata?.original_amount || 

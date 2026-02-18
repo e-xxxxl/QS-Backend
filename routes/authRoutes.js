@@ -40,6 +40,7 @@
 
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { 
   signup, 
   verifyOTP, 
@@ -53,17 +54,24 @@ const {
   apiLimiter,
   strictLimiter,
   otpLimiter,
-  loginLimiter,
   purchaseLimiter
 } = require('../middleware/rateLimiter');
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // Limit each IP to 50 requests per window
+  message: 'Too many requests from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const { protect } = require('../middleware/authMiddleware');
 
 // Public routes with specific rate limiters
-router.post('/signup', strictLimiter, signup);
+router.post('/signup', authLimiter, signup);
 router.post('/verify-otp', otpLimiter, verifyOTP); // More lenient for OTP verification
 router.post('/resend-otp', strictLimiter, resendOTP); // Stricter for resend
-router.post('/login',  login); // Use login-specific limiter
+router.post('/login', login); // Use login-specific limiter
 router.post('/forgot-password', strictLimiter, forgotPassword);
 router.post('/reset-password', apiLimiter, resetPassword);
 

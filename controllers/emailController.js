@@ -32,7 +32,7 @@ const sendAdminShipmentNotification = async (shipment, user, paymentData, retryC
     console.log(`📧 Sending admin notification to: info@quickship.africa`);
     
     // Admin email address
-    const adminEmail = 'eajejohnson@gmail.com';
+    const adminEmail = 'info@quickship.africa';
     
     // Check if we have Resend API key
     if (!process.env.RESEND_API_KEY) {

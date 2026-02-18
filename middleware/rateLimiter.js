@@ -60,7 +60,7 @@ const apiLimiter = rateLimit({
 // Strict rate limiter with proper IPv6 handling
 const strictLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 10,
   message: {
     success: false,
     error: 'Too many attempts, please try again after 15 minutes'
@@ -93,30 +93,11 @@ const otpLimiter = rateLimit({
   keyGenerator: (req) => ipKeyGenerator(req.ip) // Use ipKeyGenerator here too
 });
 
-// Login-specific limiter
-const loginLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
-  message: {
-    success: false,
-    error: 'Too many login attempts. Please try again after an hour.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  keyGenerator: (req) => {
-    // Combine properly handled IP with email for login-specific limiting
-    const ipKey = ipKeyGenerator(req.ip);
-    return req.body.email ? 
-      `${ipKey}-${req.body.email.toLowerCase()}` : 
-      ipKey;
-  }
-});
 
 // Purchase/shipment creation specific limiter
 const purchaseLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: 30,
   message: {
     success: false,
     error: 'Too many purchase attempts, please try again after an hour'
@@ -130,6 +111,5 @@ module.exports = {
   apiLimiter,
   strictLimiter,
   otpLimiter,
-  loginLimiter,
   purchaseLimiter
 };
