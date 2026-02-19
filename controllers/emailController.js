@@ -24,6 +24,159 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 })();
 
 
+// Send notification to the RECEIVER of the shipment
+const sendReceiverShipmentNotification = async (to, shipment, senderUser, retryCount = 0) => {
+  const maxRetries = 2;
+
+  try {
+    console.log(`📧 Sending receiver notification to: ${to}`);
+
+    if (!process.env.RESEND_API_KEY) {
+      console.warn(`⚠️ RESEND_API_KEY not set. Logging receiver notification for ${to}`);
+      return { id: 'dev-mode', message: 'Receiver notification logged (no API key)' };
+    }
+
+    const fromEmail = process.env.EMAIL_FROM || 'QuickShipAfrica <onboarding@resend.dev>';
+
+    // Re-use your existing helpers
+    const formatCurrency = (amount, currency = 'NGN') => {
+      try {
+        return new Intl.NumberFormat('en-NG', { style: 'currency', currency }).format(amount);
+      } catch {
+        return `${currency} ${amount?.toFixed(2) || '0.00'}`;
+      }
+    };
+
+    const formatDate = (date) => {
+      return new Date(date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    };
+
+    const emailData = await resend.emails.send({
+      from: fromEmail,
+      to: to,
+      reply_to: process.env.EMAIL_REPLY_TO || 'contact@quickship.africa',
+      subject: `📦 A Package is Coming Your Way! ${shipment.terminalShipmentId || ''}`.trim(),
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Package on the way to you</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9fafb; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #10b981, #059669); padding: 40px 30px; text-align: center; color: white; }
+            .header h1 { margin: 0; font-size: 28px; }
+            .content { padding: 40px 30px; }
+            .tracking { font-size: 22px; font-weight: bold; background: #fef3c7; padding: 12px 20px; border-radius: 8px; display: inline-block; letter-spacing: 1px; }
+            .info-card { background: #f8fafc; border-radius: 8px; padding: 25px; margin: 25px 0; border: 1px solid #e5e7eb; }
+            .button { display: inline-block; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+            .footer { background: #1f2937; color: #9ca3af; padding: 30px; text-align: center; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📦 Your Package is on the way!</h1>
+            </div>
+            
+            <div class="content">
+              <p>Hi <strong>${shipment.receiver?.name || 'there'}</strong>,</p>
+              <p>A package has been shipped to you by <strong>${shipment.sender?.name || senderUser?.firstName + ' ' + senderUser?.lastName || 'a QuickShip customer'}</strong>.</p>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <div class="tracking">${shipment.terminalShipmentId || 'Tracking number coming soon'}</div>
+              </div>
+
+              <div class="info-card">
+                <strong>Shipment Details</strong><br><br>
+                • Carrier: <strong>${shipment.shipping?.carrier_name || 'QuickShip Partner'}</strong><br>
+                • Service: <strong>${shipment.shipping?.service || 'Standard'}</strong><br>
+                • Estimated Delivery: <strong>${shipment.shipping?.estimated_delivery ? formatDate(shipment.shipping.estimated_delivery) : '3-5 business days'}</strong><br>
+                • Amount Paid: <strong>${formatCurrency(shipment.shipping?.amount || 0, shipment.shipping?.currency || 'NGN')}</strong>
+              </div>
+
+              <div class="info-card">
+                <strong>Route</strong><br><br>
+                <strong>From:</strong> ${shipment.sender?.name} — ${shipment.sender?.city || ''}, ${shipment.sender?.state || ''}<br>
+                <strong>To:</strong> ${shipment.receiver?.name} — ${shipment.receiver?.city || ''}, ${shipment.receiver?.state || ''}
+              </div>
+
+              <div style="text-align: center; margin: 40px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://quickship.africa'}/track/${shipment.terminalShipmentId}" 
+                   class="button">
+                  🔍 Track Your Package
+                </a>
+              </div>
+
+              <p>The carrier will contact you (usually by phone) when they are near your location for delivery.</p>
+              
+              <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin-top: 30px;">
+                <strong>Need help?</strong><br>
+                Reply to this email or contact us at <a href="mailto:contact@quickship.africa">contact@quickship.africa</a>
+              </div>
+            </div>
+
+            <div class="footer">
+              © ${new Date().getFullYear()} QuickShipAfrica • This is an automated notification
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `
+A PACKAGE IS COMING YOUR WAY!
+
+Hi ${shipment.receiver?.name || 'there'},
+
+A package has been sent to you by ${shipment.sender?.name || 'a QuickShip customer'}.
+
+Tracking Number: ${shipment.terminalShipmentId || 'Will be assigned shortly'}
+Carrier: ${shipment.shipping?.carrier_name || 'QuickShip Partner'}
+Est. Delivery: ${shipment.shipping?.estimated_delivery ? formatDate(shipment.shipping.estimated_delivery) : '3-5 business days'}
+
+Track it here: ${process.env.FRONTEND_URL || 'https://quickship.africa'}/track/${shipment.terminalShipmentId}
+
+The carrier will contact you for delivery.
+
+Need help? contact@quickship.africa
+
+Thank you!
+QuickShipAfrica Team
+      `
+    });
+
+    console.log(`✅ Receiver notification sent to ${to}`);
+    return emailData;
+
+  } catch (error) {
+    console.error(`❌ Failed to send receiver notification to ${to}:`, error.message);
+
+    const isRetryable = retryCount < maxRetries &&
+      !error.message?.includes('validation_error') &&
+      !error.message?.includes('rate_limit');
+
+    if (isRetryable) {
+      const delay = Math.pow(2, retryCount) * 1000;
+      await new Promise(r => setTimeout(r, delay));
+      return sendReceiverShipmentNotification(to, shipment, senderUser, retryCount + 1);
+    }
+
+    throw error;
+  }
+};
+
+// Export it
+exports.sendReceiverShipmentNotification = sendReceiverShipmentNotification;
+
+
+
 // Add this function to your emailController.js file
 const sendAdminShipmentNotification = async (shipment, user, paymentData, retryCount = 0) => {
   const maxRetries = 2;
@@ -1041,6 +1194,21 @@ exports.sendPaymentAndShipmentEmails = async (userEmail, paymentData, shipmentDa
       console.error('❌ Failed to send admin notification email:', adminEmailError.message);
     }
 
+    // === NEW: Notify the RECEIVER ===
+if (shipmentData.receiver?.email && shipmentData.receiver.email.trim() !== '') {
+  try {
+    console.log(`📤 Sending notification to receiver: ${shipmentData.receiver.email}`);
+    const receiverResult = await sendReceiverShipmentNotification(
+      shipmentData.receiver.email,
+      shipmentData,
+      user // sender user (for name fallback)
+    );
+    console.log('✅ Receiver notification result:', receiverResult?.id || 'unknown');
+  } catch (receiverError) {
+    console.error('❌ Failed to send receiver notification:', receiverError.message);
+    // We don't throw — sender and admin emails are more important
+  }
+}
     return {
       success: true,
       message: 'Emails queued successfully',
