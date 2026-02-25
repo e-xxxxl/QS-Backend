@@ -29,12 +29,14 @@ exports.getQuoteRates = async (req, res) => {
       pickup_address: {
         city: fromCity,
         state: fromState ,
-        country: fromCountry
+        country: fromCountry,
+        zip: req.body.fromZip || "100001"
       },
       delivery_address: {
         city: toCity,
         state: toState ,
-        country: toCountry
+        country: toCountry,
+        zip: req.body.toZip || "100001"
       },
       parcel: {
         description: "General Goods Shipment", // Description at parcel level
@@ -50,7 +52,7 @@ exports.getQuoteRates = async (req, res) => {
             weight_unit: "kg"
           }
         ],
-        packaging: "box",
+        packaging: "",
         weight_unit: "kg"
       },
       currency: currency || "USD"
@@ -68,14 +70,14 @@ exports.getQuoteRates = async (req, res) => {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
-        timeout: 50000
+        timeout: 60000
       }
     );
 
     console.log("Terminal Africa Response Status:", response.status);
     console.log("Terminal Africa Response Data:", JSON.stringify(response.data, null, 2));
 
-    if (response.data && response.data.success === false) {
+    if (response.data && response.data.status === false) {
       return res.status(400).json({
         success: false,
         message: response.data.message || "Failed to get quotes",
