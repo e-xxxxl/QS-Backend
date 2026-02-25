@@ -1,7 +1,21 @@
-const express = require("express");
+// routes/newsletterRoutes.js
+const express = require('express');
 const router = express.Router();
-const { subscribeNewsletter } = require("../controllers/newsletterController");
+const {
+  subscribeNewsletter,
+  getNewsletterSubscribers,
+  downloadNewsletterCSV,
+  getNewsletterStats,
+  deleteSubscriber
+} = require('../controllers/newsletterController');
 
-router.post("/subscribe", subscribeNewsletter);
+// Public route - for users to subscribe
+router.post('/subscribe', subscribeNewsletter);
+
+// Admin routes - protected
+router.get('/subscribers',  getNewsletterSubscribers);
+router.get('/download',  downloadNewsletterCSV);
+router.get('/stats',  getNewsletterStats);
+router.delete('/subscribers/:id',  deleteSubscriber);
 
 module.exports = router;
