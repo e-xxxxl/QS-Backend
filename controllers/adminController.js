@@ -28,20 +28,61 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
     exception: 'There has been an unexpected issue with your shipment. Please contact support.'
   };
 
-  // Status badge color mapping
+  // Orange theme colors
+  const theme = {
+    primary: '#F97316', // Bright orange
+    primaryDark: '#EA580C', // Darker orange for hover
+    primaryLight: '#FFEDD5', // Light orange for backgrounds
+    secondary: '#FEF3C7', // Warm amber light
+    accent: '#FB923C', // Soft orange
+    text: {
+      dark: '#1F2937',
+      medium: '#4B5563',
+      light: '#9CA3AF',
+      white: '#FFFFFF'
+    },
+    border: '#E5E7EB',
+    background: {
+      light: '#F9FAFB',
+      white: '#FFFFFF',
+      accent: '#FFF7ED' // Very light orange
+    }
+  };
+
+  // Status badge color mapping with orange accents
   const statusColors = {
-    draft: '#6c757d',
-    pending: '#ffc107',
-    processing: '#17a2b8',
-    in_transit: '#007bff',
-    delivered: '#28a745',
-    cancelled: '#dc3545',
-    exception: '#fd7e14'
+    draft: '#9CA3AF', // Gray
+    pending: '#F97316', // Orange
+    processing: '#FB923C', // Light orange
+    in_transit: '#EA580C', // Dark orange
+    delivered: '#10B981', // Green (kept for positive confirmation)
+    cancelled: '#EF4444', // Red (kept for alert)
+    exception: '#F97316' // Orange
   };
 
   const greeting = recipientType === 'sender' 
     ? `Hello ${shipment.user?.firstName || 'Valued Customer'},`
     : `Hello ${shipment.receiver?.name || 'Valued Customer'},`;
+
+  // Get status-specific next steps
+  const getNextSteps = (status) => {
+    switch(status) {
+      case 'in_transit':
+        return 'Your shipment is in transit. You can track its real-time progress using the button below.';
+      case 'delivered':
+        return 'Your shipment has been delivered. We hope you\'re satisfied with our service.';
+      case 'exception':
+        return 'Our support team has been notified and will contact you shortly to resolve this issue.';
+      case 'pending':
+        return 'Your shipment is pending confirmation. You will be notified once processing begins.';
+      case 'processing':
+        return 'Your shipment is being prepared. We\'ll notify you when it\'s on its way.';
+      case 'cancelled':
+        return 'This shipment has been cancelled. If this was a mistake, please contact support.';
+      default:
+        return 'You will receive another notification when the status updates.';
+    }
+  };
 
   return {
     subject: `Shipment Status Update: ${shipment.trackingNumber} - ${status.replace('_', ' ').toUpperCase()}`,
@@ -51,7 +92,7 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Shipment Status Update</title>
+        <title>QuickShipAfrica - Shipment Status Update</title>
         <style>
           * {
             margin: 0;
@@ -61,8 +102,8 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
-            color: #1a1a1a;
-            background-color: #f5f5f5;
+            color: ${theme.text.dark};
+            background-color: ${theme.background.light};
           }
           .container {
             max-width: 600px;
@@ -70,35 +111,58 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
             padding: 20px;
           }
           .card {
-            background-color: #ffffff;
-            border-radius: 8px;
+            background-color: ${theme.background.white};
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
           }
           .header {
-            background-color: #1a1a1a;
-            padding: 32px 24px;
+            background-color: ${theme.background.white};
+            padding: 32px 24px 16px;
             text-align: center;
-            border-bottom: 3px solid #e0e0e0;
+            border-bottom: 2px solid ${theme.border};
           }
-          .header h1 {
-            color: #ffffff;
+          .logo-container {
+            margin-bottom: 16px;
+          }
+          .logo {
+            max-width: 180px;
+            height: auto;
+            display: inline-block;
+          }
+          /* Logo placeholder - replace src with your actual logo URL */
+          .logo-placeholder {
+            width: 160px;
+            height: 60px;
+            margin: 0 auto;
+            background-color: ${theme.primary};
+            color: ${theme.text.white};
             font-size: 24px;
-            margin-bottom: 8px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            letter-spacing: 1px;
           }
-          .header p {
-            color: #cccccc;
+          .tracking-badge {
+            display: inline-block;
+            background-color: ${theme.background.accent};
+            color: ${theme.primary};
             font-size: 14px;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 20px;
+            margin-top: 8px;
           }
           .content {
             padding: 32px 24px;
           }
           .greeting {
-            font-size: 16px;
+            font-size: 18px;
             margin-bottom: 24px;
-            color: #333333;
+            color: ${theme.text.dark};
+            font-weight: 500;
           }
           .status-section {
             text-align: center;
@@ -106,154 +170,219 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
           }
           .status-badge {
             display: inline-block;
-            padding: 8px 20px;
-            background-color: ${statusColors[status] || '#6c757d'};
-            color: #ffffff;
-            border-radius: 4px;
+            padding: 10px 24px;
+            background-color: ${statusColors[status] || theme.primary};
+            color: ${theme.text.white};
+            border-radius: 30px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 15px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2);
           }
-          .message {
+          .message-card {
             font-size: 16px;
-            color: #4a4a4a;
+            color: ${theme.text.medium};
             margin: 24px 0;
-            padding: 16px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border-left: 3px solid ${statusColors[status] || '#6c757d'};
+            padding: 20px;
+            background-color: ${theme.background.accent};
+            border-radius: 10px;
+            border-left: 4px solid ${theme.primary};
+          }
+          .tracking-number-container {
+            text-align: center;
+            margin: 16px 0 24px;
+          }
+          .tracking-label {
+            font-size: 13px;
+            color: ${theme.text.light};
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
           }
           .tracking-number {
-            font-size: 20px;
-            font-weight: 600;
-            color: #1a1a1a;
-            letter-spacing: 1px;
-            margin: 16px 0;
-            text-align: center;
-            padding: 12px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            font-family: monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: ${theme.primary};
+            letter-spacing: 2px;
+            font-family: 'Courier New', monospace;
+            background-color: ${theme.background.accent};
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-block;
           }
-          .shipment-details {
-            background-color: #ffffff;
+          .details-card {
+            background-color: ${theme.background.light};
             padding: 24px;
-            border-radius: 4px;
+            border-radius: 10px;
             margin: 24px 0;
-            border: 1px solid #e0e0e0;
+            border: 1px solid ${theme.border};
           }
-          .shipment-details h3 {
-            color: #1a1a1a;
+          .details-card h3 {
+            color: ${theme.text.dark};
             font-size: 18px;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e0e0e0;
-            font-weight: 500;
-          }
-          .detail-row {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid ${theme.border};
+            font-weight: 600;
             display: flex;
-            margin-bottom: 12px;
-            padding: 4px 0;
+            align-items: center;
+          }
+          .details-card h3:before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background-color: ${theme.primary};
+            margin-right: 10px;
+            border-radius: 2px;
+          }
+          .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 12px 8px;
           }
           .detail-label {
-            width: 120px;
             font-weight: 600;
-            color: #666666;
+            color: ${theme.text.medium};
             font-size: 14px;
           }
           .detail-value {
-            flex: 1;
-            color: #1a1a1a;
+            color: ${theme.text.dark};
             font-size: 14px;
+            font-weight: 500;
           }
           .info-box {
-            background-color: #f8f9fa;
-            border-radius: 4px;
+            background-color: ${theme.background.accent};
+            border-radius: 10px;
             padding: 20px;
             margin: 24px 0;
-            border: 1px solid #e0e0e0;
+            border: 1px solid ${theme.primaryLight};
           }
           .info-box p {
-            color: #4a4a4a;
+            color: ${theme.text.medium};
             margin-bottom: 8px;
             font-size: 14px;
           }
           .info-box strong {
-            color: #1a1a1a;
-            font-weight: 600;
+            color: ${theme.primary};
+            font-size: 15px;
+            display: block;
+            margin-bottom: 8px;
           }
           .button-container {
             text-align: center;
-            margin: 32px 0 16px;
+            margin: 32px 0 24px;
           }
           .button {
             display: inline-block;
-            padding: 12px 32px;
-            background-color: #1a1a1a;
-            color: #ffffff;
+            padding: 14px 36px;
+            background-color: ${theme.primary};
+            color: ${theme.text.white};
             text-decoration: none;
-            border-radius: 4px;
-            font-weight: 500;
-            font-size: 14px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 15px;
             letter-spacing: 0.5px;
-            border: 1px solid #1a1a1a;
+            border: none;
+            box-shadow: 0 4px 6px rgba(249, 115, 22, 0.25);
+            transition: all 0.2s ease;
           }
           .button:hover {
-            background-color: #333333;
+            background-color: ${theme.primaryDark};
+            transform: translateY(-1px);
+            box-shadow: 0 6px 8px rgba(249, 115, 22, 0.3);
+          }
+          .divider {
+            border: none;
+            border-top: 1px solid ${theme.border};
+            margin: 24px 0;
+          }
+          .contact-section {
+            text-align: center;
+            background-color: ${theme.background.accent};
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 24px;
+          }
+          .contact-section p {
+            color: ${theme.text.medium};
+            font-size: 14px;
+            margin-bottom: 8px;
+          }
+          .contact-link {
+            color: ${theme.primary};
+            text-decoration: none;
+            font-weight: 600;
+            border-bottom: 1px dotted ${theme.primary};
+          }
+          .contact-link:hover {
+            color: ${theme.primaryDark};
           }
           .footer {
             text-align: center;
             padding: 24px;
-            background-color: #f8f9fa;
-            border-top: 1px solid #e0e0e0;
-          }
-          .footer p {
-            color: #666666;
-            font-size: 12px;
-            margin-bottom: 4px;
-            line-height: 1.5;
+            background-color: ${theme.background.light};
+            border-top: 1px solid ${theme.border};
           }
           .footer .company-name {
-            font-weight: 600;
-            color: #1a1a1a;
-            margin-bottom: 8px;
-          }
-          .footer .address {
-            color: #666666;
+            font-weight: 700;
+            color: ${theme.primary};
+            font-size: 16px;
             margin-bottom: 12px;
           }
-          .footer .note {
-            color: #999999;
-            font-style: italic;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid #e0e0e0;
+          .footer .address {
+            color: ${theme.text.medium};
+            font-size: 13px;
+            line-height: 1.6;
+            max-width: 400px;
+            margin: 0 auto 12px;
           }
-          hr {
-            border: none;
-            border-top: 1px solid #e0e0e0;
-            margin: 24px 0;
+          .footer .contact-info {
+            color: ${theme.text.light};
+            font-size: 12px;
+            margin-bottom: 4px;
+          }
+          .footer .note {
+            color: ${theme.text.light};
+            font-size: 11px;
+            font-style: italic;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid ${theme.border};
+          }
+          .social-links {
+            margin: 16px 0;
+          }
+          .social-link {
+            display: inline-block;
+            margin: 0 8px;
+            color: ${theme.primary};
+            text-decoration: none;
+            font-size: 13px;
+          }
+          .social-link:hover {
+            text-decoration: underline;
           }
           @media only screen and (max-width: 600px) {
             .container { padding: 10px; }
             .content { padding: 24px 16px; }
-            .detail-row { 
-              flex-direction: column; 
-              margin-bottom: 16px;
+            .detail-grid { 
+              grid-template-columns: 1fr;
+              gap: 8px;
             }
             .detail-label { 
-              width: 100%; 
-              margin-bottom: 4px;
-              font-size: 13px;
+              margin-bottom: 2px;
             }
-            .detail-value {
-              font-size: 15px;
+            .tracking-number {
+              font-size: 20px;
+              letter-spacing: 1px;
             }
             .header {
-              padding: 24px 16px;
+              padding: 24px 16px 12px;
             }
-            .header h1 {
+            .logo-placeholder {
+              width: 140px;
+              height: 50px;
               font-size: 20px;
             }
           }
@@ -262,9 +391,21 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
       <body>
         <div class="container">
           <div class="card">
+            
             <div class="header">
-              <h1>Shipment Status Update</h1>
-              <p>Tracking Number: ${shipment.trackingNumber}</p>
+              <div class="logo-container">
+               
+                <img src="https://quickship.africa/src/assets/images/favicon.png" alt="QuickShipAfrica" class="logo" style="display: none;" />
+                
+                
+                <div class="logo-placeholder">
+                  QuickShip
+                </div>
+                
+              </div>
+              <div class="tracking-badge">
+                Tracking #: ${shipment.trackingNumber}
+              </div>
             </div>
             
             <div class="content">
@@ -272,34 +413,36 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
                 ${greeting}
               </div>
               
+              <!-- Status Badge -->
               <div class="status-section">
                 <span class="status-badge">
                   ${status.replace('_', ' ').toUpperCase()}
                 </span>
               </div>
               
-              <div class="message">
+              <!-- Status Message -->
+              <div class="message-card">
                 <strong>${statusMessages[status] || 'Your shipment status has been updated'}</strong>
               </div>
               
-              <div class="tracking-number">
-                ${shipment.trackingNumber}
+              <!-- Tracking Number Highlight -->
+              <div class="tracking-number-container">
+                <div class="tracking-label">Tracking Number</div>
+                <div class="tracking-number">
+                  ${shipment.trackingNumber}
+                </div>
               </div>
               
-              <div class="shipment-details">
+              <!-- Shipment Details -->
+              <div class="details-card">
                 <h3>Shipment Details</h3>
-                
-                <div class="detail-row">
+                <div class="detail-grid">
                   <span class="detail-label">Current Status:</span>
                   <span class="detail-value"><strong>${status.replace('_', ' ').toUpperCase()}</strong></span>
-                </div>
-                
-                <div class="detail-row">
+                  
                   <span class="detail-label">Status Details:</span>
                   <span class="detail-value">${statusDescriptions[status] || 'Your shipment status has been updated.'}</span>
-                </div>
-                
-                <div class="detail-row">
+                  
                   <span class="detail-label">Last Updated:</span>
                   <span class="detail-value">${new Date().toLocaleString('en-US', { 
                     year: 'numeric', 
@@ -309,71 +452,81 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
                     minute: '2-digit',
                     hour12: true
                   })}</span>
-                </div>
-                
-                ${shipment.origin?.address ? `
-                <div class="detail-row">
+                  
+                  ${shipment.origin?.address ? `
                   <span class="detail-label">Origin:</span>
                   <span class="detail-value">${shipment.origin.address}</span>
-                </div>
-                ` : ''}
-                
-                ${shipment.destination?.address ? `
-                <div class="detail-row">
+                  ` : ''}
+                  
+                  ${shipment.destination?.address ? `
                   <span class="detail-label">Destination:</span>
                   <span class="detail-value">${shipment.destination.address}</span>
-                </div>
-                ` : ''}
-                
-                ${shipment.estimatedDelivery ? `
-                <div class="detail-row">
+                  ` : ''}
+                  
+                  ${shipment.estimatedDelivery ? `
                   <span class="detail-label">Est. Delivery:</span>
                   <span class="detail-value">${new Date(shipment.estimatedDelivery).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                   })}</span>
+                  ` : ''}
+                  
+                  ${shipment.weight ? `
+                  <span class="detail-label">Weight:</span>
+                  <span class="detail-value">${shipment.weight} kg</span>
+                  ` : ''}
                 </div>
-                ` : ''}
               </div>
               
+              <!-- Next Steps -->
               <div class="info-box">
-                <p><strong>What's Next?</strong></p>
-                ${status === 'in_transit' ? 
-                  '<p>Your shipment is in transit. You can track its progress in real-time using the tracking button below.</p>' : 
-                  status === 'delivered' ?
-                  '<p>Your shipment has been delivered. Thank you for choosing our services.</p>' :
-                  status === 'exception' ?
-                  '<p>Please contact our customer support team for assistance with this shipment.</p>' :
-                  '<p>You will receive another notification when the status updates.</p>'
-                }
+                <strong>Next Steps</strong>
+                <p>${getNextSteps(status)}</p>
               </div>
               
+              <!-- Call to Action Button -->
               <div class="button-container">
-                <a href="${process.env.FRONTEND_URL}/track/${shipment.trackingNumber}" class="button">
+                <a href="${process.env.FRONTEND_URL}/track" class="button">
                   Track Your Shipment
                 </a>
               </div>
               
-              <hr>
-              
-              <p style="text-align: center; margin: 16px 0 0; color: #666666; font-size: 13px;">
-                Need assistance? Contact our support team at 
-                <a href="mailto:info@quickship.africa" style="color: #1a1a1a; text-decoration: underline;">support@quickshipafrica.com</a>
-              </p>
+              <!-- Contact Section -->
+              <div class="contact-section">
+                <p>Need assistance with your shipment?</p>
+                <p>
+                  <a href="mailto:support@quickship.africa" class="contact-link">support@quickship.africa</a> 
+                  <span style="color: ${theme.primary};"> | </span>
+                  <a href="tel:+2349129601397" class="contact-link">+234-91-2960-1397</a>
+                </p>
+                <p style="font-size: 13px; margin-top: 8px;">
+                  Mon-Fri: 8am - 6pm | Sat: 9am - 2pm
+                </p>
+              </div>
             </div>
             
+          
             <div class="footer">
-              <p class="company-name">QuickShipAfrica</p>
-              <p class="address">Suits 11, No 20 African church street, College road, Ogba, Lagos, Nigeria</p>
-              <p>Phone: +234-91-2960-1397</p>
-              <p>Email: info@quickship.africa</p>
-              <p>Website: www.quickship.africa</p>
-              <p class="note">
-                This is an automated message from QuickShipAfrica. Please do not reply to this email. 
+              <div class="company-name">QuickShipAfrica</div>
+              <div class="address">
+                Suits 11, No 20 African church street,<br>
+                College road, Ogba, Lagos, Nigeria
+              </div>
+              <div class="contact-info">📞 +234-91-2960-1397</div>
+              <div class="contact-info">✉️ info@quickship.africa</div>
+              <div class="contact-info">🌐 www.quickship.africa</div>
+              
+              
+              
+              <div class="note">
+                This is an automated message from QuickShipAfrica. Please do not reply to this email.<br>
                 For inquiries, please contact our customer support team.
+              </div>
+              
+              <p style="margin-top: 16px; color: ${theme.text.light}; font-size: 11px;">
+                © ${new Date().getFullYear()} QuickShipAfrica . All rights reserved.
               </p>
-              <p style="margin-top: 16px;">© ${new Date().getFullYear()} QuickShipAfrica. All rights reserved.</p>
             </div>
           </div>
         </div>
