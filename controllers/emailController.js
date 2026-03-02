@@ -382,7 +382,7 @@ CUSTOMER INFORMATION:
 
 ADMIN ACTIONS:
 ==============
-🔗 View in Dashboard: ${process.env.ADMIN_DASHBOARD_URL  || 'https://quickship.africa'}/admin/shipments/${shipment._id}
+🔗 View in Dashboard: ${process.env.ADMIN_DASHBOARD_URL  || 'https://quickship.africa'}/admin-dashboard/shipments/${shipment._id}
 
 ---
 ⚠️ This is an automated admin notification.
