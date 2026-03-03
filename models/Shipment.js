@@ -142,7 +142,9 @@ const shipmentSchema = new mongoose.Schema({
     method: String,
     transactionId: String,
     paidAt: Date
-  }
+  },
+  proofOfWeightUrl: String,
+proofOfOwnershipUrl: String,
 }, { timestamps: true });
 
 // Indexes

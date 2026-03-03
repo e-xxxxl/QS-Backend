@@ -550,6 +550,9 @@ exports.verifyAndCreateShipment = async (req, res) => {
             terminalResponse.status === "draft"
               ? "pending"
               : terminalResponse.status, // Ensure not draft
+              // ✅✅ PROOF URLs ADDED HERE (only saved after successful payment) ✅✅
+  proofOfWeightUrl: shipment_data.proofOfWeightUrl || null,
+  proofOfOwnershipUrl: shipment_data.proofOfOwnershipUrl || null,
           sender: {
             name: shipment_data.metadata?.sender_name || "Sender",
             email:
