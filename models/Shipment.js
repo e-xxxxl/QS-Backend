@@ -128,11 +128,10 @@ const shipmentSchema = new mongoose.Schema({
   // Delivery instructions
   deliveryInstructions: String,
   
-  // Payment
-  payment: {
+ payment: {
     status: {
       type: String,
-      enum: ['pending', 'paid', 'failed'],
+      enum: ['pending', 'paid', 'failed'], // Keep original enum
       default: 'pending'
     },
     amount: {
@@ -141,7 +140,23 @@ const shipmentSchema = new mongoose.Schema({
     },
     method: String,
     transactionId: String,
-    paidAt: Date
+    paidAt: Date,
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    }
+  },
+
+  // Admin bypass tracking (hidden from users)
+  adminBypass: {
+    isBypass: {
+      type: Boolean,
+      default: false
+    },
+    adminId: String,
+    adminEmail: String,
+    bypassDate: Date,
+    reason: String
   },
   proofOfWeightUrl: String,
 proofOfOwnershipUrl: String,

@@ -569,6 +569,92 @@ async createShipment(shipmentData) {
 }
 
 
+// utils/terminalAfricaService.js - Add this method
+
+// utils/terminalAfricaService.js - Update the admin bypass method
+
+async createShipmentWithAdminBypass(shipmentData, adminInfo) {
+  try {
+    console.log('🚀 Creating shipment on Terminal Africa with admin bypass...');
+
+    const { 
+      address_from_id, 
+      address_to_id, 
+      parcel_id,
+      rate_id, 
+      metadata = {} 
+    } = shipmentData;
+
+    if (!address_from_id || !address_to_id || !parcel_id) {
+      throw new Error('address_from_id, address_to_id and parcel_id are required');
+    }
+
+    const terminalData = {
+      address_from: address_from_id,
+      address_to: address_to_id,
+      parcel: parcel_id,
+      shipment_purpose: metadata.shipment_purpose || 'commercial',
+      metadata: {
+        ...metadata,
+        user_email: metadata.user_email,
+        created_via: 'quickshipafrica',
+        // Don't expose admin info in Terminal Africa metadata if not needed
+      }
+    };
+
+    const response = await axios.post(
+      `${this.baseURL}/shipments`,
+      terminalData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        timeout: 30000
+      }
+    );
+
+    const terminalShipment = response.data.data || response.data;
+
+    // Book the rate
+    let purchased = false;
+    if (rate_id) {
+      try {
+        await axios.post(
+          `${this.baseURL}/shipments/${terminalShipment.shipment_id || terminalShipment.id}/purchase`,
+          { rate: rate_id },
+          { headers: { Authorization: `Bearer ${this.apiKey}` } }
+        );
+        purchased = true;
+        console.log('✅ Rate purchased successfully');
+      } catch (purchaseErr) {
+        console.warn('⚠️ Rate purchase failed:', purchaseErr.message);
+      }
+    }
+
+    return {
+      success: true,
+      shipment_id: terminalShipment.shipment_id || terminalShipment.id,
+      tracking_number: terminalShipment.tracking_number || `TRACK-${Date.now()}`,
+      status: terminalShipment.status || 'pending',
+      carrier: terminalShipment.carrier || metadata.carrier,
+      carrier_name: terminalShipment.carrier_name || metadata.carrier_name,
+      rate_id: rate_id,
+      label_url: terminalShipment.label_url,
+      tracking_url: terminalShipment.tracking_url,
+      estimated_delivery: terminalShipment.estimated_delivery || metadata.estimated_delivery,
+      amount: parseFloat(metadata.total_amount) || 0,
+      currency: 'NGN',
+      purchased
+    };
+
+  } catch (error) {
+    console.error('❌ Terminal Africa admin bypass shipment creation error:', error.message);
+    throw new Error(`Failed to create shipment on Terminal Africa: ${error.message}`);
+  }
+}
+
+
 async testConnection() {
     try {
       const response = await axios.get(`${this.baseURL}/addresses`, {
@@ -706,6 +792,8 @@ async testConnection() {
   }
 }
 }
+
+
 
 
 
