@@ -505,13 +505,13 @@ const getStatusEmailTemplate = (shipment, status, recipientType) => {
                   Mon-Fri: 8am - 6pm | Sat: 9am - 2pm
                 </p>
               </div>
-            </div>
+            </div>  
             
           
             <div class="footer">
               <div class="company-name">QuickShipAfrica</div>
               <div class="address">
-                Suits 11, No 20 African church street,<br>
+                Suite 11, No 20 African church street,<br>
                 College road, Ogba, Lagos, Nigeria
               </div>
               <div class="contact-info">📞 +234-91-2960-1397</div>
